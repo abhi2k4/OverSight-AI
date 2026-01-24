@@ -37,6 +37,10 @@ from backend.repositories.enriched_record_repository import EnrichedRecordReposi
 from backend.services.analytics_service import AnalyticsService
 from backend.services.enrichment_orchestrator import EnrichmentOrchestrator
 from backend.database import get_db, init_db
+from backend.datahub.config import DataHubConfig
+from backend.datahub.sync_service import DataHubSyncService
+from backend.datahub.tag_initializer import TagInitializer
+from backend.datahub.domain_initializer import DomainInitializer
 
 
 app = FastAPI(
@@ -249,6 +253,126 @@ async def get_review_queue(
         
     except Exception as e:
         raise HTTPException(status_code=HTTP_500_INTERNAL_ERROR, detail=f"Review queue failed: {str(e)}")
+
+
+# ============================================================================
+# DataHub Integration Endpoints
+# ============================================================================
+
+@app.post(f"{settings.api_prefix}/datahub/sync")
+async def sync_to_datahub(db: Session = Depends(get_db)):
+    """
+    Sync all enriched records to DataHub.
+    
+    This endpoint triggers a full sync of enriched data to DataHub,
+    creating dataset entities with metadata, tags, and schema information.
+    """
+    try:
+        config = DataHubConfig()
+        sync_service = DataHubSyncService(db, config)
+        
+        # Test connection first
+        if not sync_service.test_connection():
+            raise HTTPException(
+                status_code=503,
+                detail=f"Cannot connect to DataHub GMS at {config.GMS_SERVER}. Ensure DataHub is running."
+            )
+        
+        # Perform sync
+        results = sync_service.sync_all()
+        
+        return {
+            "status": results["status"],
+            "synced_sources": results["synced_sources"],
+            "total_records": results["total_records"],
+            "sources": results.get("sources", {}),
+            "errors": results.get("errors", []),
+            "datahub_url": "http://localhost:9002",
+            "message": f"Synced {results['synced_sources']} source(s) to DataHub"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_ERROR,
+            detail=f"DataHub sync failed: {str(e)}"
+        )
+
+
+@app.get(f"{settings.api_prefix}/datahub/status")
+async def datahub_status(db: Session = Depends(get_db)):
+    """
+    Check DataHub connectivity and get sync statistics.
+    
+    Returns connection status and information about data ready to sync.
+    """
+    try:
+        config = DataHubConfig()
+        sync_service = DataHubSyncService(db, config)
+        
+        # Test connection
+        connected = sync_service.test_connection()
+        
+        # Get sync stats
+        stats = sync_service.get_sync_stats() if connected else {}
+        
+        return {
+            "connected": connected,
+            "gms_url": config.GMS_SERVER,
+            "platform_name": config.PLATFORM_NAME,
+            "total_records": stats.get("total_records", 0),
+            "total_sources": stats.get("total_sources", 0),
+            "sources": stats.get("sources", {}),
+            "datahub_ui": "http://localhost:9002",
+            "message": "DataHub is connected" if connected else "DataHub is not reachable"
+        }
+        
+    except Exception as e:
+        return {
+            "connected": False,
+            "gms_url": DataHubConfig.GMS_SERVER,
+            "error": str(e),
+            "message": "Failed to connect to DataHub"
+        }
+
+
+@app.post(f"{settings.api_prefix}/datahub/initialize")
+async def initialize_datahub():
+    """
+    Initialize DataHub with OverSight tags and domains.
+    
+    This is a one-time setup that creates taxonomy tags and organizational
+    domains in DataHub. Should be run before the first sync.
+    """
+    try:
+        config = DataHubConfig()
+        
+        # Initialize tags
+        tag_init = TagInitializer(config)
+        tag_results = tag_init.initialize_all_tags()
+        tag_init.close()
+        
+        # Initialize domains
+        domain_init = DomainInitializer(config)
+        domain_results = domain_init.initialize_all_domains()
+        domain_init.close()
+        
+        return {
+            "status": "success",
+            "tags_created": tag_results["tags_created"],
+            "tags_failed": tag_results.get("tags_failed", 0),
+            "domains_created": domain_results["domains_created"],
+            "domains_failed": domain_results.get("domains_failed", 0),
+            "errors": tag_results.get("errors", []) + domain_results.get("errors", []),
+            "message": f"Created {tag_results['tags_created']} tags and {domain_results['domains_created']} domains in DataHub"
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_ERROR,
+            detail=f"DataHub initialization failed: {str(e)}"
+        )
 
 
 if __name__ == "__main__":

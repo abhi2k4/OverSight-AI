@@ -1,8 +1,14 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+import os
+from pathlib import Path
 
-# Use SQLite for local development ease, but this is switchable to PostgreSQL
-DATABASE_URL = "sqlite:///./backend/oversight.db"
+# Get the project root directory (parent of backend)
+PROJECT_ROOT = Path(__file__).parent.parent
+DB_PATH = PROJECT_ROOT / "backend" / "oversight.db"
+
+# Use absolute path for SQLite to avoid path resolution issues
+DATABASE_URL = f"sqlite:///{DB_PATH}"
 
 engine = create_engine(
     DATABASE_URL, connect_args={"check_same_thread": False}
