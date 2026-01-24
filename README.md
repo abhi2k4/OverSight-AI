@@ -10,7 +10,16 @@ Enterprise AI control plane providing continuous, real-time visibility and gover
 - **Collection-based Queries**: Organize data by business domains
 - **Analytics Dashboard**: Comprehensive statistics and insights
 - **Review Workflow**: Human-in-the-loop for low-confidence records
-- **REST API**: Complete FastAPI backend with 9 endpoints
+- **AI Agents System**: Intelligent agents powered by LangChain & Gemini
+  - Supervisor Agent for multi-agent coordination
+  - Data Discovery Agent for finding datasets
+  - Metadata Agent for querying metadata & lineage
+  - Compliance Agent for PII and governance checks
+  - Analytics Agent for insights and statistics
+- **DataHub Integration**: Query metadata from DataHub catalogs
+- **Real-time Chat**: WebSocket support for live agent interactions
+- **Conversation Memory**: Persistent conversation history
+- **REST API**: Complete FastAPI backend with 20+ endpoints
 
 ## Quick Start
 
@@ -69,6 +78,7 @@ API Layer → Service Layer → Repository Layer → Database
 
 ## API Endpoints
 
+### Data Enrichment
 - `POST /api/enrich` - Enrich records with AI
 - `GET /api/enriched` - Query enriched data
 - `GET /api/collections` - List collections
@@ -77,6 +87,19 @@ API Layer → Service Layer → Repository Layer → Database
 - `GET /api/review` - Review queue
 - `GET /api/taxonomy` - Available tags
 - `GET /api/health` - Health check
+
+### AI Agents
+- `POST /api/agents` - Create new agent
+- `GET /api/agents` - List all agents
+- `GET /api/agents/{id}` - Get agent details
+- `PUT /api/agents/{id}` - Update agent configuration
+- `DELETE /api/agents/{id}` - Delete agent
+- `POST /api/agents/query` - Query an agent (supervisor, data_discovery, metadata, compliance, analytics)
+- `GET /api/agents/{id}/conversations` - Get conversation history
+- `GET /api/agents/{id}/stats` - Agent statistics
+- `GET /api/agents/tools/stats` - Tool execution statistics
+- `WS /api/ws/agent/chat` - Real-time agent chat (WebSocket)
+- `WS /api/ws/agent/stream` - Streaming responses (WebSocket)
 
 ## Documentation
 

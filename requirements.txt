@@ -9,3 +9,19 @@ pytest
 pytest-asyncio
 pytest-cov
 acryl-datahub[datahub-rest]>=0.15.0
+
+# LangChain and LangGraph
+langchain
+langchain-core
+langchain-google-genai
+langgraph
+langgraph-checkpoint
+langgraph-checkpoint-postgres
+
+# DataHub SDK
+acryl-datahub[datahub-rest]
+
+# Additional dependencies for agents
+aiohttp
+websockets
+redis
