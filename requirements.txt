@@ -1,1 +1,10 @@
 sqlalchemy
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+google-genai
+python-dotenv
+pytest
+pytest-asyncio
+pytest-cov

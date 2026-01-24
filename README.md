@@ -1,1 +1,131 @@
-# OverSight
+# OverSight - AI & Data Governance Platform
+
+Enterprise AI control plane providing continuous, real-time visibility and governance over how data is used by AI systems.
+
+## Features
+
+- **Data Ingestion**: Multi-source data ingestion (SQLite, JSON, CSV)
+- **AI Enrichment**: Automatic metadata generation and classification using Gemini LLM
+- **Multi-label Tagging**: Intelligent categorization (product, sales, hr, finance, etc.)
+- **Collection-based Queries**: Organize data by business domains
+- **Analytics Dashboard**: Comprehensive statistics and insights
+- **Review Workflow**: Human-in-the-loop for low-confidence records
+- **REST API**: Complete FastAPI backend with 9 endpoints
+
+## Quick Start
+
+### 1. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure API Key
+
+Create a `.env` file:
+
+```bash
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+### 3. Run Tests
+
+```bash
+# Run all tests
+pytest tests/
+
+# Run specific test
+python tests/integration/test_enrichment_api.py
+```
+
+### 4. Start API Server
+
+```bash
+python scripts/start_api_server.py
+```
+
+API available at: http://localhost:8000
+Docs: http://localhost:8000/docs
+
+### 5. Run Complete Workflow
+
+```bash
+python scripts/run_ingestion_with_enrichment.py
+```
+
+## Architecture
+
+```
+backend/
+├── api/              # HTTP layer (routes, schemas)
+├── services/         # Business logic
+├── repositories/     # Data access layer
+├── ingestion/        # Data ingestion pipeline
+└── core/             # Shared utilities
+
+Clean 3-layer architecture:
+API Layer → Service Layer → Repository Layer → Database
+```
+
+## API Endpoints
+
+- `POST /api/enrich` - Enrich records with AI
+- `GET /api/enriched` - Query enriched data
+- `GET /api/collections` - List collections
+- `GET /api/collections/{name}` - Get collection data
+- `GET /api/analytics` - View statistics
+- `GET /api/review` - Review queue
+- `GET /api/taxonomy` - Available tags
+- `GET /api/health` - Health check
+
+## Documentation
+
+- **Quick Start**: `docs/QUICKSTART.md`
+- **Full Docs**: `docs/README_ENRICHMENT.md`
+- **Implementation**: `docs/IMPLEMENTATION_COMPLETE.md`
+- **Refactoring**: `REFACTORING_SUMMARY.md`
+
+## Project Structure
+
+```
+├── backend/            # Backend API and services
+├── frontend/           # React frontend
+├── tests/              # Test suite
+├── scripts/            # Utility scripts
+├── docs/               # Documentation
+├── data/               # Data files and database
+└── output/             # Ingestion output
+```
+
+## Tech Stack
+
+- **Backend**: FastAPI, SQLAlchemy, Pydantic
+- **AI**: Google Gemini LLM
+- **Database**: SQLite (PostgreSQL-ready)
+- **Frontend**: React, Vite, TailwindCSS
+- **Testing**: Pytest
+
+## Development
+
+### Run Tests
+```bash
+pytest tests/ -v
+```
+
+### Code Quality
+```bash
+# Type checking
+mypy backend/
+
+# Linting
+flake8 backend/
+```
+
+### Export Data
+```bash
+python scripts/export_enriched_output.py
+```
+
+## License
+
+Copyright © 2026 OverSight

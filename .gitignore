@@ -36,6 +36,13 @@ dist-ssr
 
 venv/
 
-/output
-output/
+# Database files
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+data/oversight.db
 
+# Output directories
+output/*/
+!output/.gitkeep
