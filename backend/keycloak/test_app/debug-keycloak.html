@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Keycloak Debug</title>
+</head>
+<body>
+    <h1>Keycloak Debug Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(message) {
+            console.log(message);
+            results.innerHTML += '<p>' + message + '</p>';
+        }
+        
+        // Test 1: Check if realm exists
+        log('Testing Keycloak configuration...');
+        log('URL: http://localhost:8080');
+        log('Realm: oversight');
+        log('Client ID: oversight-app');
+        
+        // Test 2: Try to fetch realm info
+        fetch('http://localhost:8080/realms/oversight')
+            .then(response => {
+                log('Realm response status: ' + response.status);
+                return response.json();
+            })
+            .then(data => {
+                log('✅ Realm exists and is accessible');
+                log('Realm data: ' + JSON.stringify(data, null, 2));
+                
+                // Test 3: Try OpenID configuration
+                return fetch('http://localhost:8080/realms/oversight/.well-known/openid_configuration');
+            })
+            .then(response => {
+                log('OpenID config response status: ' + response.status);
+                if (response.status === 200) {
+                    return response.json();
+                } else {
+                    throw new Error('OpenID configuration not found');
+                }
+            })
+            .then(config => {
+                log('✅ OpenID Connect configuration found!');
+                log('Authorization endpoint: ' + config.authorization_endpoint);
+                log('Token endpoint: ' + config.token_endpoint);
+                log('Issuer: ' + config.issuer);
+            })
+            .catch(error => {
+                log('❌ Error: ' + error.message);
+                log('This suggests the realm might not have OpenID Connect properly configured');
+            });
+    </script>
+</body>
+</html>
