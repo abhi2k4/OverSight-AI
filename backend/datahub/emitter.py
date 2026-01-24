@@ -7,7 +7,7 @@ import time
 from typing import List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import DatahubRestEmitter, DataHubRestEmitterConfig
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 
 from .config import DataHubConfig
 
@@ -32,12 +32,11 @@ class DataHubEmitter:
     def _get_emitter(self) -> DatahubRestEmitter:
         """Get or create REST emitter instance"""
         if self._emitter is None:
-            emitter_config = DataHubRestEmitterConfig(
-                server=self.config.GMS_SERVER,
+            self._emitter = DatahubRestEmitter(
+                gms_server=self.config.GMS_SERVER,
                 token=self.config.GMS_TOKEN,
                 timeout_sec=self.config.CONNECTION_TIMEOUT,
             )
-            self._emitter = DatahubRestEmitter(emitter_config)
         return self._emitter
     
     def test_connection(self) -> bool:
