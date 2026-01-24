@@ -1,0 +1,38 @@
+{
+  "schema_version": "51c8416e34f2",
+  "source_system": "csv_users.csv",
+  "entity_type": "system_user",
+  "key_mapping": {
+    "user_id": "user_id",
+    "email": "email",
+    "role": "role",
+    "status": "status"
+  },
+  "normalization": {
+    "flatten": true
+  },
+  "record_count": 4,
+  "fields": {
+    "user_id": {
+      "type": "string",
+      "nullable": false,
+      "present": 4
+    },
+    "email": {
+      "type": "string",
+      "nullable": false,
+      "present": 4
+    },
+    "role": {
+      "type": "string",
+      "nullable": false,
+      "present": 4
+    },
+    "status": {
+      "type": "string",
+      "nullable": false,
+      "present": 4
+    }
+  },
+  "inferred_at": "2026-01-24T14:25:45.197730+00:00"
+}

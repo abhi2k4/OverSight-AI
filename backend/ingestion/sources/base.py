@@ -14,10 +14,18 @@ class DataSource(ABC):
         """Establish connection to the data source."""
         pass
 
+    def disconnect(self):
+        """Close any open connections."""
+        return None
+
     @abstractmethod
     def fetch_data(self) -> List[Dict[str, Any]]:
         """Fetch data and return as a list of dictionaries."""
         pass
+
+    def iter_data(self):
+        """Stream data records. Defaults to iterating over fetch_data()."""
+        return iter(self.fetch_data())
 
     @abstractmethod
     def get_source_name(self) -> str:

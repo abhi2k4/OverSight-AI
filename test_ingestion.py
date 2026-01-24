@@ -4,25 +4,19 @@ import os
 # Ensure backend exists in python path
 sys.path.append(os.getcwd())
 
-from backend.database import init_db, get_db
 from backend.ingestion.pipeline import IngestionPipeline
 from backend.ingestion.factory import SourceFactory
 
 def run_test():
     print("--- Starting Test Run of Dynamic Ingestion ---")
-    
-    # 1. Initialize the unified database
-    init_db()
 
-    # 2. Define Inputs (The Test Data)
+    # 1. Define Inputs (The Test Data)
     # We pass 'entity_type' here to tell the system what this data represents
     test_inputs = [
         {
             "type": "sqlite", 
             "config": {
-                "file_path": "data/products.db", 
-                "table": "products",
-                "entity_type": "product_catalog"
+                "file_path": "data/products.db"
             }
         },
         {
@@ -41,7 +35,7 @@ def run_test():
         }
     ]
 
-    # 3. Instantiate and Run
+    # 2. Instantiate and Run
     sources = []
     for input_def in test_inputs:
         try:
@@ -54,15 +48,9 @@ def run_test():
         print("No valid sources found. Exiting.")
         return
 
-    # 4. Execute Pipeline
-    db_gen = get_db()
-    db_session = next(db_gen)
-    
-    try:
-        pipeline = IngestionPipeline(db_session, sources)
-        pipeline.run()
-    finally:
-        db_session.close()
+    # 3. Execute Pipeline (writes JSONL output)
+    pipeline = IngestionPipeline(sources, output_dir="output")
+    pipeline.run()
     
     print("--- Test Run Complete ---")
 

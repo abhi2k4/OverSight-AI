@@ -14,6 +14,10 @@ class CsvSource(DataSource):
         return f"csv_{os.path.basename(self.config.get('file_path', 'unknown'))}"
 
     def fetch_data(self) -> List[Dict[str, Any]]:
-        with open(self.file_path, 'r', encoding='utf-8') as f:
+        return list(self.iter_data())
+
+    def iter_data(self):
+        with open(self.file_path, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
-            return [row for row in reader]
+            for row in reader:
+                yield row

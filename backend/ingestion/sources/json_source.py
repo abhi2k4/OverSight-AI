@@ -14,10 +14,13 @@ class JsonSource(DataSource):
         return f"json_{os.path.basename(self.config.get('file_path', 'unknown'))}"
 
     def fetch_data(self) -> List[Dict[str, Any]]:
-        with open(self.file_path, 'r') as f:
+        return list(self.iter_data())
+
+    def iter_data(self):
+        with open(self.file_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             if isinstance(data, list):
-                return data
+                for item in data:
+                    yield item
             elif isinstance(data, dict):
-                return [data] # normalization
-            return []
+                yield data
