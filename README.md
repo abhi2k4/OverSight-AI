@@ -126,6 +126,95 @@ flake8 backend/
 python scripts/export_enriched_output.py
 ```
 
+## DataHub Integration
+
+OverSight integrates with DataHub for enhanced data discovery and governance. DataHub provides a web UI to browse, search, and visualize your enriched metadata.
+
+### Setup DataHub
+
+**1. Deploy DataHub Locally**
+
+```bash
+# Install DataHub CLI (already included in requirements.txt)
+pip install acryl-datahub[datahub-rest]
+
+# Deploy DataHub using Docker (requires 4GB+ RAM)
+datahub docker quickstart
+```
+
+DataHub UI will be available at: http://localhost:9002 (username: `datahub`, password: `datahub`)
+
+**2. Initialize Tags and Domains**
+
+Create OverSight taxonomy in DataHub:
+
+```bash
+python scripts/initialize_datahub.py
+```
+
+This creates:
+- 14 tags: product, sales, hr, finance, marketing, operations, customer_data, transaction, analytics, logs, pii, sensitive, public, structured, unstructured, media
+- 5 domains: Sales, HR, Finance, Operations, Product
+
+**3. Sync Enriched Data**
+
+Push enriched data to DataHub:
+
+```bash
+python scripts/sync_to_datahub.py
+```
+
+Or use the API:
+
+```bash
+curl -X POST http://localhost:8000/api/datahub/sync
+```
+
+### DataHub API Endpoints
+
+- `POST /api/datahub/sync` - Sync all enriched data to DataHub
+- `GET /api/datahub/status` - Check DataHub connectivity and sync statistics
+- `POST /api/datahub/initialize` - Initialize tags and domains (one-time setup)
+
+### Using DataHub UI
+
+1. Open http://localhost:9002 and login
+2. Browse → Platform: "oversight"
+3. View synced datasets with:
+   - AI-generated descriptions
+   - Applied tags from taxonomy
+   - Inferred schema from raw data
+   - Custom properties (confidence scores, record counts)
+   - Link to OverSight API for detailed records
+
+### DataHub Architecture
+
+```
+OverSight Enriched Data → DataHub Sync Service → DataHub GMS → DataHub UI
+                                                              → ElasticSearch (Search)
+```
+
+Each source system (sqlite_products, json_sales, csv_users) becomes a separate dataset entity in DataHub with:
+- Aggregated metadata from all records
+- Unique tags collected from enriched data
+- Inferred schema from raw_data fields
+- Custom properties linking back to OverSight API
+
+### Configuration
+
+DataHub settings can be configured via environment variables:
+
+```bash
+# DataHub GMS Server URL
+export DATAHUB_GMS_URL=http://localhost:8080
+
+# OverSight API URL (for links in DataHub)
+export OVERSIGHT_API_URL=http://localhost:8000
+
+# DataHub environment (PROD, DEV, etc.)
+export DATAHUB_ENV=PROD
+```
+
 ## License
 
 Copyright © 2026 OverSight
