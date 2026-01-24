@@ -37,6 +37,8 @@ from backend.repositories.enriched_record_repository import EnrichedRecordReposi
 from backend.services.analytics_service import AnalyticsService
 from backend.services.enrichment_orchestrator import EnrichmentOrchestrator
 from backend.database import get_db, init_db
+from backend.api.agent_routes import router as agent_router
+from backend.api.websocket_routes import router as websocket_router
 
 
 app = FastAPI(
@@ -52,6 +54,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include agent routes
+app.include_router(agent_router, prefix=settings.api_prefix)
+
+# Include WebSocket routes
+app.include_router(websocket_router, prefix=settings.api_prefix)
 
 
 @app.on_event("startup")

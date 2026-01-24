@@ -8,3 +8,19 @@ python-dotenv
 pytest
 pytest-asyncio
 pytest-cov
+
+# LangChain and LangGraph
+langchain
+langchain-core
+langchain-google-genai
+langgraph
+langgraph-checkpoint
+langgraph-checkpoint-postgres
+
+# DataHub SDK
+acryl-datahub[datahub-rest]
+
+# Additional dependencies for agents
+aiohttp
+websockets
+redis
