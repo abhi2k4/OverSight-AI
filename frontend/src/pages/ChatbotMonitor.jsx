@@ -17,7 +17,7 @@ import {
 } from '@tabler/icons-react';
 import { Card } from '@/components/ui/card';
 
-const CHATBOT_API = 'http://localhost:3002';
+const CHATBOT_API = 'http://localhost:3003';
 
 export default function ChatbotMonitor() {
   const [metrics, setMetrics] = useState(null);
@@ -247,7 +247,7 @@ export default function ChatbotMonitor() {
                     <h3 className="text-lg font-semibold text-slate-900">
                       AI Governance Assistant
                     </h3>
-                    <p className="text-sm text-slate-600">Powered by GPT-4o-mini</p>
+                    <p className="text-sm text-slate-600">Powered by GROQ</p>
                   </div>
                 </div>
               </div>
