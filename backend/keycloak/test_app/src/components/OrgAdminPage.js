@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import RequestStore from '../store/RequestStore';
 
 const OrgAdminPage = () => {
   const [message, setMessage] = useState('');
-  const [requests, setRequests] = useState(RequestStore.getAllRequests());
+  const [requests, setRequests] = useState([]);
+
+  // Load requests when component mounts
+  useEffect(() => {
+    refreshRequests();
+  }, []);
+
+  const refreshRequests = () => {
+    setRequests(RequestStore.getAllRequests());
+  };
 
   const handleStatusChange = (requestId, newStatus) => {
     const success = RequestStore.updateRequestStatus(requestId, newStatus);
     if (success) {
-      setRequests([...RequestStore.getAllRequests()]);
+      refreshRequests(); // Refresh the data
       setMessage(`Request status updated to ${newStatus}`);
       setTimeout(() => setMessage(''), 3000);
     }
@@ -22,7 +31,12 @@ const OrgAdminPage = () => {
     <div className="page">
       <header className="page-header">
         <h1>Organization Admin Page</h1>
-        <Link to="/" className="back-link">← Back to Dashboard</Link>
+        <div>
+          <button onClick={refreshRequests} style={{marginRight: '10px', padding: '5px 10px'}}>
+            🔄 Refresh
+          </button>
+          <Link to="/" className="back-link">← Back to Dashboard</Link>
+        </div>
       </header>
 
       <div className="content">
@@ -31,7 +45,7 @@ const OrgAdminPage = () => {
         <div className="section">
           <h2>Pending Requests ({pendingRequests.length})</h2>
           {pendingRequests.length === 0 ? (
-            <p>No pending requests.</p>
+            <p>No pending requests. <button onClick={refreshRequests}>Click to refresh</button></p>
           ) : (
             <div className="requests-list">
               {pendingRequests.map(request => (
