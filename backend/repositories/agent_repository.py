@@ -209,7 +209,7 @@ class ConversationRepository:
         conversation_id: str,
         role: MessageRole,
         content: str,
-        metadata: Optional[Dict[str, Any]] = None
+        message_metadata: Optional[Dict[str, Any]] = None
     ) -> AgentMessage:
         """Add a message to a conversation"""
         message = AgentMessage(
@@ -217,7 +217,7 @@ class ConversationRepository:
             conversation_id=conversation_id,
             role=role,
             content=content,
-            metadata=metadata or {}
+            message_metadata=message_metadata or {}
         )
         
         self.db.add(message)

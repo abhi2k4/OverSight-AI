@@ -14,7 +14,9 @@ from backend.agents.specialized_agents import (
     DataDiscoveryAgent,
     MetadataAgent,
     ComplianceAgent,
-    AnalyticsAgent
+    AnalyticsAgent,
+    SalesAgent,
+    ProductAgent
 )
 
 logger = logging.getLogger(__name__)
@@ -58,7 +60,9 @@ class SupervisorAgent:
             "data_discovery": DataDiscoveryAgent(),
             "metadata": MetadataAgent(),
             "compliance": ComplianceAgent(),
-            "analytics": AnalyticsAgent()
+            "analytics": AnalyticsAgent(),
+            "sales": SalesAgent(),
+            "product": ProductAgent()
         }
     
     async def _route_query(self, query: str) -> List[str]:
@@ -78,11 +82,13 @@ Available agents:
 - metadata: For querying metadata, tags, descriptions, lineage information
 - compliance: For checking PII, sensitivity levels, access policies, compliance requirements
 - analytics: For generating insights, statistics, and trends from enriched data
+- sales: For analyzing sales data, revenue insights, customer patterns, sales trends, and business intelligence
+- product: For analyzing product data, inventory information, catalog details, and product specifications
 
 User query: "{query}"
 
 Respond with ONLY the agent type(s) that should handle this query, separated by commas.
-Examples: "data_discovery", "compliance,metadata", "analytics"
+Examples: "data_discovery", "compliance,metadata", "analytics", "sales", "product"
 
 Agent(s):"""
         
@@ -97,7 +103,7 @@ Agent(s):"""
             
             # Parse response
             agent_types = []
-            for agent_type in ["data_discovery", "metadata", "compliance", "analytics"]:
+            for agent_type in ["data_discovery", "metadata", "compliance", "analytics", "sales", "product"]:
                 if agent_type in content:
                     agent_types.append(agent_type)
             

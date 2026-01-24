@@ -40,6 +40,8 @@ from backend.database import get_db, init_db
 from backend.api.agent_routes import router as agent_router
 from backend.api.websocket_routes import router as websocket_router
 
+from dotenv import load_dotenv
+load_dotenv()
 
 app = FastAPI(
     title=settings.app_name,

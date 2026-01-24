@@ -273,7 +273,7 @@ async def query_agent(
                 conversation_id=conversation_id,
                 role=MessageRole.ASSISTANT,
                 content=result.get("response", ""),
-                metadata={
+                message_metadata={
                     "tool_calls": result.get("tool_calls", []),
                     "execution_time_ms": result.get("execution_time_ms", 0),
                     "routed_to": result.get("routed_to", [])

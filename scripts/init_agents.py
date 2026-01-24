@@ -93,6 +93,35 @@ def init_default_agents():
                 "get_collections_tool"
             ],
             "risk_level": RiskLevel.LOW
+        },
+        {
+            "name": "Sales Agent",
+            "agent_type": AgentType.SALES,
+            "description": "Analyzes sales data, generates revenue insights, and provides business intelligence",
+            "owner": "Sales & Business Intelligence",
+            "tools_enabled": [
+                "search_datasets_tool",
+                "search_by_domain_tool",
+                "get_enriched_records_tool",
+                "get_analytics_tool",
+                "get_collections_tool"
+            ],
+            "risk_level": RiskLevel.LOW
+        },
+        {
+            "name": "Product Agent",
+            "agent_type": AgentType.PRODUCT,
+            "description": "Analyzes product data, inventory information, and catalog details",
+            "owner": "Product Management",
+            "tools_enabled": [
+                "search_datasets_tool",
+                "search_by_domain_tool",
+                "get_enriched_records_tool",
+                "get_analytics_tool",
+                "get_collections_tool",
+                "get_dataset_metadata_tool"
+            ],
+            "risk_level": RiskLevel.LOW
         }
     ]
     
@@ -116,7 +145,7 @@ def init_default_agents():
             description=agent_data["description"],
             owner=agent_data["owner"],
             llm_config={
-                "model": "gemini-2.0-flash-exp",
+                "model": "gemini-2.5-flash",
                 "temperature": 0.3,
                 "max_tokens": 4096
             },

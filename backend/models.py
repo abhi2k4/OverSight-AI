@@ -12,6 +12,8 @@ class AgentType(str, enum.Enum):
     METADATA = "metadata"
     COMPLIANCE = "compliance"
     ANALYTICS = "analytics"
+    SALES = "sales"
+    PRODUCT = "product"
 
 
 class AgentStatus(str, enum.Enum):
@@ -136,7 +138,7 @@ class AgentMessage(Base):
     conversation_id = Column(String(36), ForeignKey("agent_conversations.id"), nullable=False, index=True)
     role = Column(Enum(MessageRole), nullable=False)
     content = Column(Text, nullable=False)
-    metadata = Column(JSON, nullable=True)  # Tool calls, thinking, sources
+    message_metadata = Column(JSON, nullable=True)  # Tool calls, thinking, sources
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())

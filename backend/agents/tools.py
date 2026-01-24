@@ -3,6 +3,8 @@ LangChain tools for agent interactions with DataHub and internal databases
 """
 import json
 import logging
+import os
+from pathlib import Path
 from typing import Optional, List, Dict, Any
 from langchain_core.tools import tool
 from sqlalchemy.orm import Session
@@ -12,6 +14,9 @@ from backend.models import EnrichedRecord, Agent
 from backend.database import get_db
 
 logger = logging.getLogger(__name__)
+
+# Output directory path
+OUTPUT_DIR = Path(__file__).parent.parent.parent / "output"
 
 
 @tool
@@ -379,6 +384,106 @@ def check_compliance_tool(entity_type: Optional[str] = None, sensitivity_level: 
         return json.dumps({"error": str(e)})
 
 
+@tool
+def query_local_collections_tool(collection_name: Optional[str] = None, limit: int = 10) -> str:
+    """
+    Query data from local output directory when DataHub is not available.
+    Reads from the ingestion output folder to get actual data.
+    
+    Args:
+        collection_name: Optional collection/source name (e.g., 'products', 'sales', 'users')
+        limit: Maximum number of records to return (default: 10)
+    
+    Returns:
+        JSON string containing records from local files
+    """
+    try:
+        if not OUTPUT_DIR.exists():
+            return json.dumps({
+                "error": "Output directory not found",
+                "message": "Data has not been ingested yet. Run ingestion first."
+            })
+        
+        # Scan output directory for available collections
+        collections = {}
+        
+        for source_dir in OUTPUT_DIR.iterdir():
+            if source_dir.is_dir():
+                source_name = source_dir.name
+                
+                # Look for entity directories inside source
+                for entity_dir in source_dir.iterdir():
+                    if entity_dir.is_dir():
+                        entity_name = entity_dir.name
+                        
+                        # Look for date directories
+                        for date_dir in entity_dir.iterdir():
+                            if date_dir.is_dir():
+                                data_file = date_dir / "data.jsonl"
+                                
+                                if data_file.exists():
+                                    # Read the data
+                                    records = []
+                                    with open(data_file, 'r') as f:
+                                        for line in f:
+                                            if line.strip():
+                                                records.append(json.loads(line))
+                                    
+                                    collection_key = f"{source_name}/{entity_name}"
+                                    collections[collection_key] = {
+                                        "source": source_name,
+                                        "entity_type": entity_name,
+                                        "record_count": len(records),
+                                        "records": records[:limit] if len(records) > limit else records
+                                    }
+        
+        if not collections:
+            return json.dumps({
+                "message": "No data found in output directory",
+                "available_collections": []
+            })
+        
+        # Filter by collection_name if provided
+        if collection_name:
+            # Try to find matching collection
+            matching_collections = {}
+            for key, data in collections.items():
+                if collection_name.lower() in key.lower() or \
+                   collection_name.lower() in data['entity_type'].lower() or \
+                   collection_name.lower() in data['source'].lower():
+                    matching_collections[key] = data
+            
+            if not matching_collections:
+                return json.dumps({
+                    "message": f"No collections found matching: {collection_name}",
+                    "available_collections": list(collections.keys())
+                })
+            
+            collections = matching_collections
+        
+        # Format response
+        response = {
+            "message": f"Found {len(collections)} collection(s)",
+            "collections": []
+        }
+        
+        for key, data in collections.items():
+            collection_info = {
+                "name": key,
+                "source": data['source'],
+                "entity_type": data['entity_type'],
+                "total_records": data['record_count'],
+                "sample_records": data['records']
+            }
+            response["collections"].append(collection_info)
+        
+        return json.dumps(response, indent=2)
+        
+    except Exception as e:
+        logger.error(f"Error in query_local_collections_tool: {e}")
+        return json.dumps({"error": str(e)})
+
+
 # Tool registry for easy access
 ALL_TOOLS = [
     search_datasets_tool,
@@ -389,7 +494,8 @@ ALL_TOOLS = [
     get_enriched_records_tool,
     get_collections_tool,
     get_analytics_tool,
-    check_compliance_tool
+    check_compliance_tool,
+    query_local_collections_tool
 ]
 
 # Tool groups by agent specialization
@@ -398,23 +504,44 @@ TOOL_GROUPS = {
         search_datasets_tool,
         get_dataset_metadata_tool,
         search_by_domain_tool,
-        get_collections_tool
+        get_collections_tool,
+        query_local_collections_tool
     ],
     "metadata": [
         get_dataset_metadata_tool,
         search_by_tags_tool,
         get_lineage_tool,
-        get_enriched_records_tool
+        get_enriched_records_tool,
+        query_local_collections_tool
     ],
     "compliance": [
         search_by_tags_tool,
         check_compliance_tool,
-        get_enriched_records_tool
+        get_enriched_records_tool,
+        query_local_collections_tool
     ],
     "analytics": [
         get_analytics_tool,
         get_enriched_records_tool,
-        get_collections_tool
+        get_collections_tool,
+        query_local_collections_tool
+    ],
+    "sales": [
+        search_datasets_tool,
+        search_by_domain_tool,
+        get_enriched_records_tool,
+        get_analytics_tool,
+        get_collections_tool,
+        query_local_collections_tool
+    ],
+    "product": [
+        search_datasets_tool,
+        search_by_domain_tool,
+        get_enriched_records_tool,
+        get_analytics_tool,
+        get_collections_tool,
+        get_dataset_metadata_tool,
+        query_local_collections_tool
     ],
     "supervisor": ALL_TOOLS  # Supervisor has access to all tools
 }

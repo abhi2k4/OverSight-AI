@@ -131,7 +131,7 @@ class MemoryManager:
                 memory.add_message(
                     role=msg.role.value,
                     content=msg.content,
-                    metadata=msg.metadata or {}
+                    metadata=msg.message_metadata or {}
                 )
             
             logger.info(f"Loaded {len(messages)} messages from database for conversation {conversation_id}")
@@ -164,7 +164,7 @@ class MemoryManager:
                     conversation_id=conversation_id,
                     role=role_enum,
                     content=msg["content"],
-                    metadata=msg.get("metadata")
+                    message_metadata=msg.get("metadata")
                 )
             
             logger.info(f"Persisted {len(messages)} messages to database")

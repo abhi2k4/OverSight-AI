@@ -134,7 +134,7 @@ class MessageResponse(BaseModel):
     conversation_id: str
     role: str
     content: str
-    metadata: Dict[str, Any]
+    message_metadata: Dict[str, Any]
     created_at: datetime
     
     class Config:

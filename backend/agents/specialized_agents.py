@@ -49,6 +49,28 @@ class AnalyticsAgent(BaseAgent):
         )
 
 
+class SalesAgent(BaseAgent):
+    """Agent specialized in sales data analysis and business intelligence"""
+    
+    def __init__(self, name: str = "Sales Agent", llm_config: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            agent_type="sales",
+            name=name,
+            llm_config=llm_config
+        )
+
+
+class ProductAgent(BaseAgent):
+    """Agent specialized in product data analysis and inventory management"""
+    
+    def __init__(self, name: str = "Product Agent", llm_config: Optional[Dict[str, Any]] = None):
+        super().__init__(
+            agent_type="product",
+            name=name,
+            llm_config=llm_config
+        )
+
+
 def create_specialized_agents() -> Dict[str, BaseAgent]:
     """
     Create all specialized agents and return them as a dictionary
@@ -60,7 +82,9 @@ def create_specialized_agents() -> Dict[str, BaseAgent]:
         "data_discovery": DataDiscoveryAgent(),
         "metadata": MetadataAgent(),
         "compliance": ComplianceAgent(),
-        "analytics": AnalyticsAgent()
+        "analytics": AnalyticsAgent(),
+        "sales": SalesAgent(),
+        "product": ProductAgent()
     }
     
     return agents
@@ -81,7 +105,9 @@ def get_agent_by_type(agent_type: str, llm_config: Optional[Dict[str, Any]] = No
         "data_discovery": DataDiscoveryAgent,
         "metadata": MetadataAgent,
         "compliance": ComplianceAgent,
-        "analytics": AnalyticsAgent
+        "analytics": AnalyticsAgent,
+        "sales": SalesAgent,
+        "product": ProductAgent
     }
     
     agent_class = agent_classes.get(agent_type)
