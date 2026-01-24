@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import ChatbotMonitor from './pages/ChatbotMonitor';
 import Login from './pages/Login';
 import LandingPage from './pages/LandingPage';
+import { Toaster } from './components/ui/toaster';
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
         </Route>
         <Route path="/landing" element={<LandingPage />} />
       </Routes>
+      <Toaster />
     </Router>
   );
 }

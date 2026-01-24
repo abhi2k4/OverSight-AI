@@ -51,7 +51,7 @@ if [ ! -f ".env" ]; then
     echo "      - Add to: OPENAI_API_KEY in .env"
     echo ""
     echo "   2. LangFuse Keys:"
-    echo "      - Sign up at: https://cloud.langfuse.com"
+    echo "      - Sign up at: http://localhost:3000"
     echo "      - Create a project"
     echo "      - Get keys from: Settings → API Keys"
     echo "      - Add LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY to .env"

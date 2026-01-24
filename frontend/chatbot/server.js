@@ -19,7 +19,7 @@ const groq = new Groq({
 const langfuse = new Langfuse({
   secretKey: process.env.LANGFUSE_SECRET_KEY,
   publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-  baseUrl: process.env.LANGFUSE_HOST || 'https://cloud.langfuse.com',
+  baseUrl: process.env.LANGFUSE_HOST || 'http://localhost:3000',
 });
 
 // Middleware

@@ -16,8 +16,10 @@ import {
   IconX
 } from '@tabler/icons-react';
 import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { useToast } from '@/hooks/use-toast';
 
-const CHATBOT_API = 'http://localhost:3003';
+const API_BASE = '/api'; // Proxied through Vite
 
 export default function ChatbotMonitor() {
   const [metrics, setMetrics] = useState(null);
@@ -26,23 +28,70 @@ export default function ChatbotMonitor() {
   const [input, setInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const [conversationId, setConversationId] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview'); // overview, langfuse, traces
+  const [activeTab, setActiveTab] = useState('overview');
+  const [healthStatus, setHealthStatus] = useState(null);
+  const [errorAlert, setErrorAlert] = useState(null);
+  const { toast } = useToast();
 
   useEffect(() => {
+    checkHealth();
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 5000); // Refresh every 5 seconds
+    const interval = setInterval(fetchMetrics, 10000); // Refresh every 10 seconds
     return () => clearInterval(interval);
   }, []);
 
+  const checkHealth = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/health`);
+      const data = await response.json();
+      setHealthStatus(data);
+      
+      if (!data.groq.connected) {
+        setErrorAlert({
+          variant: 'warning',
+          title: 'Groq API Not Configured',
+          description: 'Please configure GROQ_API_KEY in your .env file to enable chat functionality.',
+        });
+      } else if (!data.langfuse.connected) {
+        setErrorAlert({
+          variant: 'info',
+          title: 'LangFuse Not Configured',
+          description: 'LangFuse tracing is disabled. Configure LANGFUSE keys for analytics.',
+        });
+      }
+    } catch (error) {
+      console.error('Health check failed:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Server Connection Failed',
+        description: 'Cannot connect to the API server. Please ensure the server is running.',
+      });
+    }
+  };
+
   const fetchMetrics = async () => {
     try {
-      const response = await fetch(`${CHATBOT_API}/api/metrics`);
+      const response = await fetch(`${API_BASE}/metrics`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch metrics: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       setMetrics(data);
       setLoading(false);
     } catch (error) {
       console.error('Failed to fetch metrics:', error);
       setLoading(false);
+      
+      if (metrics === null) {
+        // Only show error toast on first load failure
+        toast({
+          variant: 'destructive',
+          title: 'Metrics Unavailable',
+          description: 'Failed to load chatbot metrics. The API server may not be running.',
+        });
+      }
     }
   };
 
@@ -55,7 +104,7 @@ export default function ChatbotMonitor() {
     setChatLoading(true);
 
     try {
-      const response = await fetch(`${CHATBOT_API}/api/chat`, {
+      const response = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -66,6 +115,10 @@ export default function ChatbotMonitor() {
       });
 
       const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get response');
+      }
       
       if (!conversationId) {
         setConversationId(data.conversationId);
@@ -78,15 +131,32 @@ export default function ChatbotMonitor() {
         timestamp: new Date()
       }]);
 
+      // Show success toast
+      toast({
+        variant: 'success',
+        title: 'Response Received',
+        description: `Used ${data.metadata.tokens} tokens in ${data.metadata.latency}ms`,
+      });
+
       // Refresh metrics after chat
       fetchMetrics();
     } catch (error) {
       console.error('Chat error:', error);
+      
+      const errorMessage = error.message || 'Failed to get response';
+      
       setMessages(prev => [...prev, {
         role: 'error',
-        content: 'Failed to get response. Please check if the chatbot server is running.',
+        content: errorMessage,
         timestamp: new Date()
       }]);
+
+      // Show detailed error toast
+      toast({
+        variant: 'destructive',
+        title: 'Chat Error',
+        description: errorMessage,
+      });
     } finally {
       setChatLoading(false);
     }
@@ -117,9 +187,26 @@ export default function ChatbotMonitor() {
             <p className="text-slate-600">
               Real-time observability and tracing for AI governance chatbot
             </p>
+            {healthStatus && (
+              <div className="flex items-center gap-4 mt-2 text-sm">
+                <span className={`flex items-center gap-1 ${healthStatus.groq.connected ? 'text-emerald-600' : 'text-red-600'}`}>
+                  {healthStatus.groq.connected ? '✓' : '✗'} Groq API
+                </span>
+                <span className={`flex items-center gap-1 ${healthStatus.langfuse.connected ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {healthStatus.langfuse.connected ? '✓' : '○'} LangFuse
+                </span>
+              </div>
+            )}
           </div>
           <button
-            onClick={fetchMetrics}
+            onClick={() => {
+              fetchMetrics();
+              checkHealth();
+              toast({
+                title: 'Refreshing...',
+                description: 'Updating metrics and health status',
+              });
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1e3a8a] transition-colors"
           >
             <IconRefresh size={20} />
@@ -130,6 +217,13 @@ export default function ChatbotMonitor() {
 
       <div className="flex-1 overflow-y-auto bg-slate-50">
         <div className="p-8 space-y-6">
+          {/* Error/Warning Alerts */}
+          {errorAlert && (
+            <Alert variant={errorAlert.variant} onClose={() => setErrorAlert(null)}>
+              <AlertTitle>{errorAlert.title}</AlertTitle>
+              <AlertDescription>{errorAlert.description}</AlertDescription>
+            </Alert>
+          )}
           {/* Tabs */}
           <div className="flex gap-2 border-b border-slate-200">
             <button
@@ -427,7 +521,8 @@ export default function ChatbotMonitor() {
                   </div>
                   <div className="bg-slate-50 rounded-lg p-4">
                     <p className="text-sm text-slate-600 mb-1">Model</p>
-                    <p className="text-lg font-semibold text-slate-900">GPT-4o-mini</p>
+                    <p className="text-lg font-semibold text-slate-900">Llama 3.3</p>
+                    <p className="text-xs text-slate-500">70B Versatile</p>
                   </div>
                 </div>
               </Card>

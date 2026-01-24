@@ -3,7 +3,19 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'configure-server',
+      configureServer: async (server) => {
+        // Import the API server
+        const { default: apiApp } = await import('./server/index.js')
+        
+        // Use the Express app as middleware for /api routes
+        server.middlewares.use('/api', apiApp)
+      },
+    },
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -11,6 +23,6 @@ export default defineConfig({
   },
   server: {
     port: 3002,
-    open: true
-  }
+    open: true,
+  },
 })
