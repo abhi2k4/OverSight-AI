@@ -1,5 +1,5 @@
-from .product import ProductSource
-from .sales import SalesSource
-from .users import UserSource
+from .sqlite_source import SqliteSource
+from .json_source import JsonSource
+from .csv_source import CsvSource
 
-__all__ = ["ProductSource", "SalesSource", "UserSource"]
+__all__ = ["SqliteSource", "JsonSource", "CsvSource"]

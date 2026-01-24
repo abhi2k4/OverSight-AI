@@ -1,0 +1,20 @@
+[
+  {
+    "transaction_id": "tx_5001",
+    "customer": "MegaCorp",
+    "amount": 15000,
+    "items": [
+      {"sku": "AI-ENTERPRISE", "qty": 1}
+    ],
+    "timestamp": "2023-10-27T10:00:00Z"
+  },
+  {
+    "transaction_id": "tx_5002",
+    "customer": "StartUpInc",
+    "amount": 299,
+    "items": [
+      {"sku": "AI-LITE", "qty": 5}
+    ],
+    "timestamp": "2023-10-27T11:30:00Z"
+  }
+]

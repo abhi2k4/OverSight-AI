@@ -1,0 +1,5 @@
+user_id,email,role,status
+u_1001,alice@example.com,admin,active
+u_1002,bob@example.com,editor,active
+u_1003,charlie@external.org,viewer,inactive
+u_1004,dave@example.com,admin,active

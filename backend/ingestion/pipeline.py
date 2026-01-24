@@ -19,7 +19,8 @@ class IngestionPipeline:
                 data = source.fetch_data()
                 
                 print(f"Fetched {len(data)} records.")
-                self._save_batch(source.get_source_name(), data)
+                entity_type = source.get_entity_type()
+                self._save_batch(source.get_source_name(), entity_type, data)
                 total_records += len(data)
                 
             except Exception as e:
@@ -27,19 +28,10 @@ class IngestionPipeline:
         
         print(f"Pipeline Complete. Total records ingested: {total_records}")
 
-    def _save_batch(self, source_name: str, records: List[dict]):
+    def _save_batch(self, source_name: str, entity_type: str, records: List[dict]):
         for record_data in records:
             # Basic validation or transformation could happen here
             
-            # Determine entity type broadly based on source (heuristic)
-            entity_type = "unknown"
-            if "product" in source_name:
-                entity_type = "product"
-            elif "sales" in source_name:
-                entity_type = "transaction"
-            elif "user" in source_name:
-                entity_type = "user"
-
             unified_record = UnifiedRecord(
                 source_system=source_name,
                 entity_type=entity_type,
