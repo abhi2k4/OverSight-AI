@@ -145,7 +145,7 @@ export default function LandingPage() {
   const navItems = [
     { name: 'Home', link: '#hero' },
     { name: 'Features', link: '#features' },
-    { name: 'Docs', link: '/docs' },
+    { name: 'Docs', link: 'https://oversight-docs.vercel.app/docs' },
     { name: 'FAQ', link: '#faq' }
   ];
 
@@ -352,7 +352,7 @@ export default function LandingPage() {
                             Get Started Now
                             <IconBrandGithubFilled size={20} />
                         </button>
-                        <button onClick={() => window.open('https://oversightai.in', '_blank')} className="h-14 px-8 rounded-xl border-2 border-white/30 hover:bg-white/10 text-white font-semibold text-lg transition-all backdrop-blur-sm hover:scale-105 active:scale-95">
+                        <button onClick={() => window.open('https://oversight-docs.vercel.app/docs', '_blank')} className="h-14 px-8 rounded-xl border-2 border-white/30 hover:bg-white/10 text-white font-semibold text-lg transition-all backdrop-blur-sm hover:scale-105 active:scale-95">
                             Read Documentation
                         </button>
                     </div>

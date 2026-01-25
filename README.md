@@ -231,20 +231,7 @@ Each source system (sqlite_products, json_sales, csv_users) becomes a separate d
 - Inferred schema from raw_data fields
 - Custom properties linking back to OverSight API
 
-### Configuration
 
-DataHub settings can be configured via environment variables:
-
-```bash
-# DataHub GMS Server URL
-export DATAHUB_GMS_URL=http://localhost:8080
-
-# OverSight API URL (for links in DataHub)
-export OVERSIGHT_API_URL=http://localhost:8000
-
-# DataHub environment (PROD, DEV, etc.)
-export DATAHUB_ENV=PROD
-```
 
 ## License
 
