@@ -74,13 +74,62 @@ export const getUserRoles = () => {
 
 export const getUserInfo = () => {
   if (keycloak.tokenParsed) {
+    const token = keycloak.tokenParsed;
     return {
-      username: keycloak.tokenParsed.preferred_username,
-      email: keycloak.tokenParsed.email,
-      name: keycloak.tokenParsed.name,
+      username: token.preferred_username,
+      email: token.email,
+      name: token.name,
+      roles: token.realm_access?.roles || [],
+      lastLogin: token.auth_time ? new Date(token.auth_time * 1000) : new Date(),
     };
   }
   return null;
+};
+
+// Role Helper Functions
+export const hasRole = (roles, role) => {
+  return roles.includes(role);
+};
+
+export const isOrgAdmin = (roles) => {
+  return roles.includes('org-admin');
+};
+
+export const canAccessAdmin = (roles) => {
+  return isOrgAdmin(roles);
+};
+
+export const canAccessAI = (roles) => {
+  return isOrgAdmin(roles) || roles.includes('ai-engineer');
+};
+
+export const canAccessData = (roles) => {
+  return isOrgAdmin(roles) || roles.includes('data-engineer');
+};
+
+export const canAccessMetadata = (roles) => {
+  // All authenticated users can access metadata manager
+  return isOrgAdmin(roles) || roles.includes('ai-engineer') || roles.includes('data-engineer');
+};
+
+export const canAccessPolicies = (roles) => {
+  return isOrgAdmin(roles);
+};
+
+export const canAccessCompliance = (roles) => {
+  return isOrgAdmin(roles);
+};
+
+export const canAccessAlerts = (roles) => {
+  return isOrgAdmin(roles) || roles.includes('ai-engineer') || roles.includes('data-engineer');
+};
+
+export const canAccessAuditLogs = (roles) => {
+  return isOrgAdmin(roles);
+};
+
+export const canAccessChatbot = (roles) => {
+  return isOrgAdmin(roles) || roles.includes('ai-engineer');
 };
 
 export const logout = () => {

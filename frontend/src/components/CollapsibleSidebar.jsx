@@ -15,21 +15,34 @@ import {
   IconSettings,
   IconMessageChatbot,
   IconFileDatabase,
+  IconShield,
 } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '../store/appStore';
 import { Button } from './ui/button';
+import {
+  canAccessAI,
+  canAccessData,
+  canAccessMetadata,
+  canAccessPolicies,
+  canAccessCompliance,
+  canAccessAlerts,
+  canAccessAuditLogs,
+  canAccessChatbot,
+  canAccessAdmin,
+} from '../services/KeycloakService';
 
 const navItems = [
-  { path: '/dashboard', icon: IconLayoutDashboard, label: 'Dashboard' },
-  { path: '/agents', icon: IconRobot, label: 'AI Agents' },
-  { path: '/datasets', icon: IconDatabase, label: 'Datasets' },
-  { path: '/metadata', icon: IconFileDatabase, label: 'Metadata Manager' },
-  { path: '/policies', icon: IconGavel, label: 'Policies' },
-  { path: '/compliance', icon: IconShieldCheck, label: 'Compliance Manager' },
-  { path: '/alerts', icon: IconAlertTriangle, label: 'Alerts' },
-  { path: '/audit-logs', icon: IconFileText, label: 'Audit Logs' },
-  { path: '/chatbot', icon: IconMessageChatbot, label: 'Chatbot Monitor' },
+  { path: '/dashboard', icon: IconLayoutDashboard, label: 'Dashboard', checkAccess: null },
+  { path: '/admin', icon: IconShield, label: 'Admin Dashboard', checkAccess: canAccessAdmin },
+  { path: '/agents', icon: IconRobot, label: 'AI Agents', checkAccess: canAccessAI },
+  { path: '/datasets', icon: IconDatabase, label: 'Datasets', checkAccess: canAccessData },
+  { path: '/metadata', icon: IconFileDatabase, label: 'Metadata Manager', checkAccess: canAccessMetadata },
+  { path: '/policies', icon: IconGavel, label: 'Policies', checkAccess: canAccessPolicies },
+  { path: '/compliance', icon: IconShieldCheck, label: 'Compliance Manager', checkAccess: canAccessCompliance },
+  { path: '/alerts', icon: IconAlertTriangle, label: 'Alerts', checkAccess: canAccessAlerts },
+  { path: '/audit-logs', icon: IconFileText, label: 'Audit Logs', checkAccess: canAccessAuditLogs },
+  { path: '/chatbot', icon: IconMessageChatbot, label: 'Chatbot Monitor', checkAccess: canAccessChatbot },
 ];
 
 const bottomNavItems = [
@@ -40,6 +53,15 @@ export default function CollapsibleSidebar() {
   const location = useLocation();
   const user = useAppStore((state) => state.user);
   const [collapsed, setCollapsed] = useState(false);
+
+  // Get user roles
+  const userRoles = user?.roles || [];
+
+  // Filter navigation items based on user roles
+  const visibleNavItems = navItems.filter(item => {
+    if (!item.checkAccess) return true; // Always show items without access check (like Dashboard)
+    return item.checkAccess(userRoles);
+  });
 
   return (
     <aside
@@ -81,7 +103,7 @@ export default function CollapsibleSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
 

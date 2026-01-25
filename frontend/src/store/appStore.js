@@ -9,6 +9,7 @@ export const useAppStore = create(
       user: null,
       setAuthenticated: (status, user = null) =>
         set({ isAuthenticated: status, user }),
+      setUser: (user) => set({ user }),
       logout: () => set({ isAuthenticated: false, user: null }),
 
       // Current route

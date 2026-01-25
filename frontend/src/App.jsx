@@ -1,6 +1,18 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { initKeycloak, getToken } from './services/KeycloakService';
+import { 
+  initKeycloak, 
+  getUserInfo,
+  canAccessAdmin,
+  canAccessAI,
+  canAccessData,
+  canAccessMetadata,
+  canAccessPolicies,
+  canAccessCompliance,
+  canAccessAlerts,
+  canAccessAuditLogs,
+  canAccessChatbot,
+} from './services/KeycloakService';
 import { useAppStore } from './store/appStore';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -15,19 +27,27 @@ import Settings from './pages/Settings';
 import ChatbotMonitor from './pages/ChatbotMonitor';
 import ComplianceManager from './pages/ComplianceManager';
 import MetadataManager from './pages/MetadataManager';
+import AdminDashboard from './pages/AdminDashboard';
+import Unauthorized from './pages/Unauthorized';
 import Login from './pages/Login';
+import ProtectedRoute from './components/ProtectedRoute';
 import { Toaster } from './components/ui/toaster';
 
 function App() {
   const [keycloakInitialized, setKeycloakInitialized] = useState(false);
   const [initError, setInitError] = useState(null);
+  const [userRoles, setUserRoles] = useState([]);
   const setAuthenticated = useAppStore((state) => state.setAuthenticated);
+  const setUser = useAppStore((state) => state.setUser);
 
   useEffect(() => {
     initKeycloak()
       .then((authenticated) => {
         if (authenticated) {
+          const userInfo = getUserInfo();
           setAuthenticated(true);
+          setUser(userInfo);
+          setUserRoles(userInfo.roles);
           setKeycloakInitialized(true);
         } else {
           setInitError('Authentication failed');
@@ -37,7 +57,7 @@ function App() {
         console.error('Keycloak initialization failed:', error);
         setInitError('Failed to initialize authentication');
       });
-  }, [setAuthenticated]);
+  }, [setAuthenticated, setUser]);
 
   if (initError) {
     return (
@@ -78,19 +98,108 @@ function App() {
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="agents" element={<AIAgents />} />
-          <Route path="agents/:id" element={<AgentDetail />} />
-          <Route path="datasets" element={<Datasets />} />
-          <Route path="datasets/:id" element={<DatasetDetail />} />
-          <Route path="policies" element={<Policies />} />
-          <Route path="alerts" element={<Alerts />} />
-          <Route path="audit-logs" element={<AuditLogs />} />
-          <Route path="chatbot" element={<ChatbotMonitor />} />
-          <Route path="compliance" element={<ComplianceManager />} />
-          <Route path="metadata" element={<MetadataManager />} />
+          
+          <Route 
+            path="admin" 
+            element={
+              <ProtectedRoute allow={canAccessAdmin(userRoles)}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="agents" 
+            element={
+              <ProtectedRoute allow={canAccessAI(userRoles)}>
+                <AIAgents />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="agents/:id" 
+            element={
+              <ProtectedRoute allow={canAccessAI(userRoles)}>
+                <AgentDetail />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="datasets" 
+            element={
+              <ProtectedRoute allow={canAccessData(userRoles)}>
+                <Datasets />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="datasets/:id" 
+            element={
+              <ProtectedRoute allow={canAccessData(userRoles)}>
+                <DatasetDetail />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="metadata" 
+            element={
+              <ProtectedRoute allow={canAccessMetadata(userRoles)}>
+                <MetadataManager />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="policies" 
+            element={
+              <ProtectedRoute allow={canAccessPolicies(userRoles)}>
+                <Policies />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="alerts" 
+            element={
+              <ProtectedRoute allow={canAccessAlerts(userRoles)}>
+                <Alerts />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="audit-logs" 
+            element={
+              <ProtectedRoute allow={canAccessAuditLogs(userRoles)}>
+                <AuditLogs />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="chatbot" 
+            element={
+              <ProtectedRoute allow={canAccessChatbot(userRoles)}>
+                <ChatbotMonitor />
+              </ProtectedRoute>
+            } 
+          />
+          
+          <Route 
+            path="compliance" 
+            element={
+              <ProtectedRoute allow={canAccessCompliance(userRoles)}>
+                <ComplianceManager />
+              </ProtectedRoute>
+            } 
+          />
+          
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { IconUser, IconKey, IconBell, IconPlus, IconTrash, IconRefresh } from '@tabler/icons-react';
+import { IconUser, IconKey, IconBell, IconPlus, IconTrash, IconRefresh, IconShield } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '../store/appStore';
+import { logout } from '../services/KeycloakService';
 import {
   Table,
   TableBody,
@@ -42,9 +44,23 @@ const apiKeys = [
 ];
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState('team');
+  const [activeTab, setActiveTab] = useState('profile');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isKeyDialogOpen, setIsKeyDialogOpen] = useState(false);
+  const user = useAppStore((state) => state.user);
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  const getRoleBadgeColor = (role) => {
+    const colors = {
+      'org-admin': 'bg-red-100 text-red-700 border-red-200',
+      'ai-engineer': 'bg-blue-100 text-blue-700 border-blue-200',
+      'data-engineer': 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    };
+    return colors[role] || 'bg-slate-100 text-slate-700 border-slate-200';
+  };
 
   return (
     <div className="h-full flex flex-col bg-slate-50">
@@ -86,30 +102,123 @@ export default function Settings() {
           {/* User Profile Tab */}
           {activeTab === 'profile' && (
             <div className="space-y-6">
+              {/* User Info Card */}
               <Card className="p-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-4">Personal Information</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-start justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-1">User Profile</h3>
+                    <p className="text-sm text-slate-600">Your account information and authentication details</p>
+                  </div>
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold text-2xl">
+                    {user?.name?.charAt(0) || user?.username?.charAt(0) || 'U'}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Username</label>
+                      <Input value={user?.username || 'N/A'} disabled className="bg-slate-50" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
+                      <Input value={user?.email || 'N/A'} disabled className="bg-slate-50" />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">Full Name</label>
-                    <Input defaultValue="Enterprise Admin" />
+                    <Input value={user?.name || 'N/A'} disabled className="bg-slate-50" />
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Email</label>
-                    <Input defaultValue="admin@oversight.ai" type="email" />
+                    <label className="block text-sm font-medium text-slate-700 mb-2">Last Login</label>
+                    <Input 
+                      value={user?.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'N/A'} 
+                      disabled 
+                      className="bg-slate-50" 
+                    />
                   </div>
+
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Role</label>
-                    <Input defaultValue="System Administrator" disabled />
+                    <label className="block text-sm font-medium text-slate-700 mb-3">Assigned Roles</label>
+                    <div className="flex flex-wrap gap-2">
+                      {user?.roles && user.roles.length > 0 ? (
+                        user.roles
+                          .filter(role => ['org-admin', 'ai-engineer', 'data-engineer'].includes(role))
+                          .map((role) => (
+                            <Badge
+                              key={role}
+                              className={cn(
+                                'px-3 py-1.5 text-xs font-semibold border',
+                                getRoleBadgeColor(role)
+                              )}
+                            >
+                              <IconShield size={14} className="mr-1" />
+                              {role}
+                            </Badge>
+                          ))
+                      ) : (
+                        <span className="text-sm text-slate-500">No roles assigned</span>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Department</label>
-                    <Input defaultValue="IT Operations" />
+
+                  <div className="pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">Authentication Provider</p>
+                        <p className="text-xs text-slate-500 mt-1">Keycloak (OpenID Connect)</p>
+                      </div>
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                        Active
+                      </Badge>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-6">
-                  <Button className="bg-[#1E40AF] hover:bg-[#1e3a8a]">Save Changes</Button>
                 </div>
               </Card>
+
+              {/* Role Permissions Card */}
+              <Card className="p-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Role Permissions</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                    <span className="text-sm font-medium text-slate-700">Dashboard Access</span>
+                    <Badge className="bg-emerald-100 text-emerald-700">Granted</Badge>
+                  </div>
+                  {user?.roles?.includes('org-admin') && (
+                    <>
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <span className="text-sm font-medium text-slate-700">Admin Dashboard</span>
+                        <Badge className="bg-emerald-100 text-emerald-700">Granted</Badge>
+                      </div>
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <span className="text-sm font-medium text-slate-700">All Features</span>
+                        <Badge className="bg-emerald-100 text-emerald-700">Full Access</Badge>
+                      </div>
+                    </>
+                  )}
+                  {user?.roles?.includes('ai-engineer') && (
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">AI Agents Management</span>
+                      <Badge className="bg-emerald-100 text-emerald-700">Granted</Badge>
+                    </div>
+                  )}
+                  {user?.roles?.includes('data-engineer') && (
+                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                      <span className="text-sm font-medium text-slate-700">Datasets Management</span>
+                      <Badge className="bg-emerald-100 text-emerald-700">Granted</Badge>
+                    </div>
+                  )}
+                </div>
+              </Card>
+
+              {/* Actions */}
+              <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={handleLogout} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                  Logout
+                </Button>
+              </div>
             </div>
           )}
 
