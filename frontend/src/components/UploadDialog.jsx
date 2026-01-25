@@ -328,7 +328,6 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
             <div className="flex items-center gap-2">
               <IconDatabase size={18} />
               Connectors
-              <Badge variant="outline" className="ml-1 text-xs">Coming Soon</Badge>
             </div>
           </button>
         </div>
