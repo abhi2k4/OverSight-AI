@@ -4,7 +4,7 @@ Enterprise AI control plane providing continuous, real-time visibility and gover
 
 ## Features
 
-- **Data Ingestion**: Multi-source data ingestion (SQLite, JSON, CSV)
+- **Data Ingestion**: Multi-source data ingestion (RDMS, NoSQL DBs, SQLite, JSON, CSV, etc)
 - **AI Enrichment**: Automatic metadata generation and classification using Gemini LLM
 - **Multi-label Tagging**: Intelligent categorization (product, sales, hr, finance, etc.)
 - **Collection-based Queries**: Organize data by business domains
@@ -17,6 +17,7 @@ Enterprise AI control plane providing continuous, real-time visibility and gover
   - Compliance Agent for PII and governance checks
   - Analytics Agent for insights and statistics
 - **DataHub Integration**: Query metadata from DataHub catalogs
+- **Compliance, Monitoring & Governance of AI Agents**: Track AI Agents , Cost of Compute, Full Trace and Compliance Violations
 - **Real-time Chat**: WebSocket support for live agent interactions
 - **Conversation Memory**: Persistent conversation history
 - **REST API**: Complete FastAPI backend with 20+ endpoints
@@ -79,6 +80,7 @@ API Layer → Service Layer → Repository Layer → Database
 ## API Endpoints
 
 ### Data Enrichment
+
 - `POST /api/enrich` - Enrich records with AI
 - `GET /api/enriched` - Query enriched data
 - `GET /api/collections` - List collections
@@ -89,6 +91,7 @@ API Layer → Service Layer → Repository Layer → Database
 - `GET /api/health` - Health check
 
 ### AI Agents
+
 - `POST /api/agents` - Create new agent
 - `GET /api/agents` - List all agents
 - `GET /api/agents/{id}` - Get agent details
@@ -131,11 +134,13 @@ API Layer → Service Layer → Repository Layer → Database
 ## Development
 
 ### Run Tests
+
 ```bash
 pytest tests/ -v
 ```
 
 ### Code Quality
+
 ```bash
 # Type checking
 mypy backend/
@@ -145,6 +150,7 @@ flake8 backend/
 ```
 
 ### Export Data
+
 ```bash
 python scripts/export_enriched_output.py
 ```
@@ -176,6 +182,7 @@ python scripts/initialize_datahub.py
 ```
 
 This creates:
+
 - 14 tags: product, sales, hr, finance, marketing, operations, customer_data, transaction, analytics, logs, pii, sensitive, public, structured, unstructured, media
 - 5 domains: Sales, HR, Finance, Operations, Product
 
@@ -218,6 +225,7 @@ OverSight Enriched Data → DataHub Sync Service → DataHub GMS → DataHub UI
 ```
 
 Each source system (sqlite_products, json_sales, csv_users) becomes a separate dataset entity in DataHub with:
+
 - Aggregated metadata from all records
 - Unique tags collected from enriched data
 - Inferred schema from raw_data fields
