@@ -1,0 +1,27 @@
+{
+  "name": "oversight-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OverSight AI - Main website and documentation",
+  "scripts": {
+    "install:web": "cd web && npm install",
+    "install:docs": "cd web/src/docs && npm install",
+    "install:all": "npm run install:web && npm run install:docs",
+    "build:web": "cd web && npm run build",
+    "build:docs": "cd web/src/docs && npm run build",
+    "build:all": "npm run build:web && npm run build:docs",
+    "build": "npm run install:all && npm run build:all",
+    "dev:web": "cd web && npm run dev",
+    "dev:docs": "cd web/src/docs && npm run dev",
+    "clean": "rm -rf web/dist web/src/docs/.next",
+    "vercel-build": "npm run build"
+  },
+  "workspaces": [
+    "web",
+    "web/src/docs"
+  ],
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}

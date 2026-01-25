@@ -64,7 +64,7 @@ const HeroSection = () => {
   };
 
   return (
-    <section id="hero" className="w-full relative overflow-hidden pt-20 md:pt-32 pb-32 min-h-screen flex items-center">
+    <section id="hero" className="w-full relative overflow-hidden pt-8 pb-24 md:pb-32 min-h-screen flex items-center">
       {/* Background gradient blur */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-[#7C3AED]/20 blur-[120px] rounded-full pointer-events-none -z-10" />
       

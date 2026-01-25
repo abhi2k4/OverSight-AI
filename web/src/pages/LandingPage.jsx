@@ -1,8 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { 
-  IconSun, 
-  IconMoon, 
-  IconMenu, 
   IconArrowRight,
   IconStack,
   IconActivity,
@@ -11,20 +8,25 @@ import {
   IconCloud,
   IconChartBar,
   IconCheck,
-  IconX,
-  IconChevronDown
+  IconChevronDown,
+  IconSun,
+  IconMoon,
+  IconBrandGithub,
+  IconBrandGithubFilled
 } from '@tabler/icons-react';
-import {
-  Navbar,
-  NavBody,
-  NavItems,
-  MobileNav,
-  MobileNavHeader,
-  MobileNavMenu,
-  MobileNavToggle,
-  NavbarButton
+import { 
+  Navbar, 
+  NavBody, 
+  NavItems, 
+  MobileNav, 
+  MobileNavHeader, 
+  MobileNavToggle, 
+  MobileNavMenu, 
+  NavbarButton 
 } from '@/components/ui/resizable-navbar';
 import HeroSection from '@/components/HeroSection';
+import VideoSection from '@/components/VideoSection';
+import FeaturesSection from '@/components/FeaturesSection';
 
 // --- Components ---
 
@@ -66,12 +68,12 @@ const CompanyLogo = ({ name, children }) => (
     before:absolute before:-left-1 before:top-0 before:z-10 before:h-screen before:w-px before:bg-border before:content-[''] 
     after:absolute after:-top-1 after:left-0 after:z-10 after:h-px after:w-screen after:bg-border after:content-[''] overflow-hidden"
   >
-    <div className="transition-all duration-300 ease-[cubic-bezier(0.165,0.84,0.44,1)] translate-y-0 group-hover:-translate-y-4 flex items-center justify-center w-full h-full text-muted-foreground group-hover:text-primary">
+    <div className="transition-all duration-300 ease-[cubic-bezier(0.165,0.84,0.44,1)] translate-y-0 group-hover:-translate-y-3 flex items-center justify-center w-full h-full text-muted-foreground group-hover:text-[#7C3AED]">
       {children}
     </div>
-    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-8 group-hover:translate-y-4 transition-all duration-300 ease-[cubic-bezier(0.165,0.84,0.44,1)]">
-      <span className="text-sm font-medium text-primary flex items-center gap-1">
-        Read Story <IconArrowRight size={14} />
+    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 translate-y-6 group-hover:translate-y-3 transition-all duration-300 ease-[cubic-bezier(0.165,0.84,0.44,1)]">
+      <span className="text-sm font-medium text-[#7C3AED] flex items-center gap-1">
+        View Case Study <IconArrowRight size={14} />
       </span>
     </div>
   </a>
@@ -100,12 +102,40 @@ const AccordionItem = ({ question, answer, isOpen, onClick }) => {
 };
 
 export default function LandingPage() {
-  const [theme, setTheme] = useState('light');
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState(() => {
+    // Check localStorage or system preference
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) return savedTheme;
+    
+    // Check system preference
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
+  });
   const [openAccordion, setOpenAccordion] = useState(null);
 
+  // Apply theme to document root
+  useEffect(() => {
+    console.log('Theme changed to:', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+      console.log('Applied dark mode, classList:', document.documentElement.classList.toString());
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+      console.log('Applied light mode, classList:', document.documentElement.classList.toString());
+    }
+  }, [theme]);
+
   const toggleTheme = () => {
-    setTheme(theme === 'light' ? 'dark' : 'light');
+    console.log('Toggle clicked, current theme:', theme);
+    setTheme(prevTheme => {
+      const newTheme = prevTheme === 'light' ? 'dark' : 'light';
+      console.log('Setting new theme:', newTheme);
+      return newTheme;
+    });
   };
 
   const toggleAccordion = (index) => {
@@ -115,94 +145,104 @@ export default function LandingPage() {
   const navItems = [
     { name: 'Home', link: '#hero' },
     { name: 'Features', link: '#features' },
-    { name: 'Pricing', link: '#pricing' },
+    { name: 'Docs', link: '/docs' },
     { name: 'FAQ', link: '#faq' }
   ];
 
   return (
-    <div className={`min-h-screen font-sans selection:bg-primary/20 ${theme === 'dark' ? 'dark' : ''}`}>
-      <style>{`
-        @keyframes marquee-vertical {
-          from { transform: translateY(0); }
-          to { transform: translateY(-50%); }
-        }
-        .animate-marquee-vertical {
-          animation: marquee-vertical 20s linear infinite;
-        }
-        .animate-marquee-vertical:hover {
-          animation-play-state: paused;
-        }
-      `}</style>
-
+    <div className="min-h-screen font-sans selection:bg-primary/20">
       <div className="max-w-full mx-auto border-x min-h-screen relative bg-background text-foreground transition-colors duration-300">
-        {/* Background Grid Lines */}
-        <div className="hidden md:block w-px h-full border-l border-border absolute top-0 left-6 z-0" />
-        <div className="hidden md:block w-px h-full border-r border-border absolute top-0 right-6 z-0" />
         
-        {/* Navbar with Resizable Component */}
-        <Navbar>
-          <NavBody className="!min-w-0">
-            <div className="flex items-center justify-between w-full px-6">
-              <a className="flex items-center gap-2.5 group flex-shrink-0" href="#">
-                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-primary/5 transition-colors">
+        {/* Resizable Navbar with Theme */}
+        <Navbar className="top-0">
+          <NavBody className="w-full">
+            <div className="flex items-center justify-between w-full">
+              <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
+                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors">
                   <img 
                     src="/OverSight.png" 
                     alt="OverSight Logo" 
                     className="w-7 h-7 rounded-md object-cover"
                   />
                 </div>
-                <p className="text-sm font-bold tracking-tight text-primary">OverSight<span className="text-muted-foreground font-normal">AI</span></p>
+                <p className="text-base font-bold tracking-tight">
+                  <span className="text-[#7C3AED]">OverSight</span>
+                  <span className="text-muted-foreground font-normal">AI</span>
+                </p>
               </a>
+              
+              <NavItems 
+                items={navItems}
+                className="!absolute !inset-0 !flex !flex-row !items-center !justify-center !space-x-2 md:!space-x-6 text-sm font-medium"
+              />
 
-              <NavItems items={navItems} />
-
-              <div className="flex items-center gap-2 ml-auto flex-shrink-0">
-                <NavbarButton variant="gradient" className="!px-5 !py-1.5 !text-xs">
-                  Get Started
-                </NavbarButton>
-                <button onClick={toggleTheme} className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-secondary">
+              <div className="flex items-center gap-3 ml-auto relative z-50">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Button clicked!');
+                    toggleTheme();
+                  }}
+                  className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors cursor-pointer"
+                  aria-label="Toggle theme"
+                >
                   {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
                 </button>
+                <NavbarButton href="#contact" variant="primary" className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] px-6">
+                  Get Started
+                </NavbarButton>
               </div>
             </div>
           </NavBody>
 
-          <MobileNav>
-            <MobileNavHeader>
-              <a className="flex items-center gap-2.5 group" href="#">
-                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-primary/5 transition-colors">
+          <MobileNav className="w-full">
+            <MobileNavHeader className="justify-between">
+              <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
+                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors">
                   <img 
                     src="/OverSight.png" 
                     alt="OverSight Logo" 
-                    className="w-7 h-7 rounded-md object-cover"
+                    className="w-6 h-6 rounded-md object-cover"
                   />
                 </div>
-                <p className="text-sm font-bold tracking-tight text-primary">OverSight<span className="text-muted-foreground font-normal">AI</span></p>
+                <p className="text-sm font-bold tracking-tight">
+                  <span className="text-[#7C3AED]">OverSight</span>
+                </p>
               </a>
-              <div className="flex items-center gap-2">
-                <button onClick={toggleTheme} className="p-2 text-muted-foreground hover:text-foreground transition-colors rounded-full hover:bg-secondary">
+              <div className="flex items-center gap-2 relative z-50">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('Mobile button clicked!');
+                    toggleTheme();
+                  }}
+                  className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors cursor-pointer"
+                  aria-label="Toggle theme"
+                >
                   {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
                 </button>
-                <MobileNavToggle
-                  isOpen={mobileMenuOpen}
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                />
+                <MobileNavToggle isOpen={false} />
               </div>
             </MobileNavHeader>
-            <MobileNavMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)}>
-              {navItems.map((item) => (
-                <a
-                  key={item.name}
-                  href={item.link}
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item.name}
-                </a>
-              ))}
-              <NavbarButton variant="gradient" className="w-full !mt-4">
-                Get Started
-              </NavbarButton>
+            <MobileNavMenu isOpen={false} onClose={() => {}}>
+              <div className="w-full space-y-4">
+                {navItems.map((item) => (
+                  <a
+                    key={item.name}
+                    href={item.link}
+                    target={item.external ? "_blank" : undefined}
+                    rel={item.external ? "noopener noreferrer" : undefined}
+                    className="text-muted-foreground hover:text-[#7C3AED] transition-colors text-sm font-medium"
+                  >
+                    {item.name}
+                  </a>
+                ))}
+                <NavbarButton href="#contact" variant="primary" className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] w-full">
+                  Get Started
+                </NavbarButton>
+              </div>
             </MobileNavMenu>
           </MobileNav>
         </Navbar>
@@ -213,227 +253,53 @@ export default function LandingPage() {
           {/* Hero Section with Animated Diagram */}
           <HeroSection />
 
-          {/* Company Section - Infinity Grid */}
-          <section id="company" className="relative py-20 border-y border-border bg-slate-50/50 dark:bg-slate-900/20">
-             <div className="max-w-7xl mx-auto px-6 mb-10 text-center">
-                <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest">Trusted by innovative teams at</p>
-             </div>
-             
-             <div className="w-full relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-background z-10 pointer-events-none" />
-                <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 border-t border-border">
-                    {['Acme Corp', 'GlobalBank', 'TechStart', 'Nebula AI', 'Quantasoft', 'BlueSky', 'Vertex', 'Horizon', 'Pinnacle', 'Zenith'].map((name, i) => (
-                       <CompanyLogo key={i} name={name}>
-                          <span className="flex items-center gap-2 text-lg font-bold">
-                             {/* Simple generic logo shapes */}
-                             <div className={`w-6 h-6 rounded bg-gradient-to-tr opacity-80 ${[
-                                 'from-blue-500 to-cyan-500', 
-                                 'from-purple-500 to-pink-500', 
-                                 'from-green-500 to-emerald-500',
-                                 'from-orange-500 to-yellow-500',
-                                 'from-red-500 to-rose-500'
-                             ][i % 5]}`} />
-                             {name}
-                          </span>
-                       </CompanyLogo>
-                    ))}
-                </div>
-             </div>
-          </section>
+          {/* Video Section - Introduction */}
+          <VideoSection />
 
-          {/* Features Bento Grid */}
-          <section id="features" className="py-32 px-6 relative">
-             <div className="max-w-3xl mx-auto text-center mb-20">
-                <FadeIn>
-                    <h2 className="text-3xl md:text-5xl font-bold tracking-tight mb-6">Capabilities used by the best</h2>
-                    <p className="text-lg text-muted-foreground">Governance isn't just about blocking—it's about enabling safe, scalable AI adoption.</p>
-                </FadeIn>
-             </div>
+          {/* Powered By Open Source Section - Infinite Scroll */}
+         
 
-             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-6 gap-6 auto-rows-[400px]">
-                {/* Large Card 1 */}
-                <FadeIn className="md:col-span-4 relative group overflow-hidden rounded-3xl border border-border bg-card p-8 flex flex-col justify-between">
-                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    <div className="relative z-10">
-                        <div className="h-12 w-12 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 mb-6">
-                            <IconChartBar size={24} />
-                        </div>
-                        <h3 className="text-2xl font-semibold mb-2">Real-time Analytics</h3>
-                        <p className="text-muted-foreground">Trace every token, cost, and latency metrics across all your LLM calls.</p>
-                    </div>
-                    <div className="absolute right-0 bottom-0 w-2/3 h-2/3 bg-gradient-to-tl from-slate-100 dark:from-slate-800 rounded-tl-3xl border-t border-l border-border p-4 shadow-sm translate-y-4 translate-x-4 group-hover:translate-x-2 group-hover:translate-y-2 transition-transform">
-                        {/* Fake chart */}
-                        <div className="w-full h-full flex items-end gap-2 px-4 pb-4">
-                            {[30, 45, 35, 60, 50, 75, 45, 65, 80].map((h, i) => (
-                                <div key={i} className="flex-1 bg-blue-500 rounded-t opacity-80" style={{height: `${h}%`}} />
-                            ))}
-                        </div>
-                    </div>
-                </FadeIn>
-
-                {/* Tall Card 2 */}
-                <FadeIn delay={100} className="md:col-span-2 relative group overflow-hidden rounded-3xl border border-border bg-card p-8">
-                     <div className="absolute inset-0 bg-mesh-gradient opacity-10" />
-                     <div className="h-12 w-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 mb-6">
-                        <IconShield size={24} />
-                    </div>
-                    <h3 className="text-2xl font-semibold mb-2">Policy Guardrails</h3>
-                    <p className="text-muted-foreground">Block sensitive data and enforce compliance rules before they happen.</p>
-                    
-                    <div className="mt-8 space-y-3">
-                        {['PII Detection', 'Topic Filtering', 'Rate Limiting', 'Cost Caps'].map((item, i) => (
-                            <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-background border border-border">
-                                <IconCheck size={16} className="text-green-500" />
-                                <span className="text-sm font-medium">{item}</span>
-                            </div>
-                        ))}
-                    </div>
-                </FadeIn>
-
-                 {/* Card 3 */}
-                 <FadeIn delay={200} className="md:col-span-3 relative group overflow-hidden rounded-3xl border border-border bg-card p-8">
-                    <div className="h-12 w-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 mb-6">
-                        <IconBrain size={24} />
-                    </div>
-                    <h3 className="text-2xl font-semibold mb-2">Model Agnostic</h3>
-                    <p className="text-muted-foreground">Works with OpenAI, Anthropic, Llama, and your custom fine-tuned models.</p>
-                    <div className="mt-8 flex flex-wrap gap-2">
-                        {['GPT-4', 'Claude 3', 'Llama 3', 'Mistral', 'Gemini'].map((badge) => (
-                            <span key={badge} className="px-3 py-1 bg-secondary text-secondary-foreground rounded-full text-xs font-medium border border-border">
-                                {badge}
-                            </span>
-                        ))}
-                    </div>
-                 </FadeIn>
-
-                 {/* Card 4 */}
-                 <FadeIn delay={300} className="md:col-span-3 relative group overflow-hidden rounded-3xl border border-border bg-card p-8">
-                    <div className="h-12 w-12 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 mb-6">
-                        <IconCloud size={24} />
-                    </div>
-                    <h3 className="text-2xl font-semibold mb-2">Data Sovereignity</h3>
-                    <p className="text-muted-foreground">Keep your data in your VPC. We never train on your logs.</p>
-                    <div className="mt-6 p-4 rounded-xl bg-slate-950 text-slate-200 font-mono text-xs">
-                        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
-                            <div className="w-2 h-2 rounded-full bg-red-500"/>
-                            <div className="w-2 h-2 rounded-full bg-yellow-500"/>
-                            <div className="w-2 h-2 rounded-full bg-green-500"/>
-                        </div>
-                        <p className="text-emerald-400">$ deployment_mode <span className="text-white">=</span> <span className="text-amber-300">"self-hosted"</span></p>
-                        <p className="text-blue-400">✓ Analytics pipeline initialized</p>
-                        <p className="text-blue-400">✓ PII redaction active</p>
-                    </div>
-                 </FadeIn>
-             </div>
-          </section>
-
-          {/* Testimonials Marquee */}
-          <section className="py-24 overflow-hidden border-y border-border bg-slate-50 dark:bg-black/20">
-             <div className="max-w-7xl mx-auto px-6 mb-16 text-center">
-                <h2 className="text-3xl font-bold tracking-tight">Loved by Engineering Teams</h2>
-             </div>
-             
-             <div className="relative w-full h-[500px] overflow-hidden">
-                <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-slate-50 dark:from-background to-transparent z-10" />
-                <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-50 dark:from-background to-transparent z-10" />
-                
-                <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {[0, 1, 2].map((colIndex) => (
-                        <div key={colIndex} className={`flex flex-col gap-6 animate-marquee-vertical ${colIndex % 2 === 1 ? 'mt-10' : ''}`} style={{animationDuration: `${20 + colIndex * 5}s`}}>
-                             {[...Array(6)].map((_, i) => (
-                                 <div key={i} className="p-6 rounded-2xl bg-background border border-border shadow-sm hover:shadow-md transition-shadow">
-                                     <div className="flex items-center gap-1 mb-4 text-amber-400">
-                                         {[...Array(5)].map((_,star) => <svg key={star} width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>)}
-                                     </div>
-                                     <p className="text-sm leading-relaxed mb-4 text-muted-foreground">
-                                         "OverSight has completely changed how we deploy AI agents. The visibility into cost and latency is unmatched."
-                                     </p>
-                                     <div className="flex items-center gap-3">
-                                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500" />
-                                         <div>
-                                             <p className="text-xs font-bold text-foreground">Sarah Jenkins</p>
-                                             <p className="text-xs text-muted-foreground">CTO at TechFlow</p>
-                                         </div>
-                                     </div>
-                                 </div>
-                             ))}
-                        </div>
-                    ))}
-                </div>
-             </div>
-          </section>
-
-          {/* Pricing */}
-          <section id="pricing" className="py-32 px-6">
-                <div className="max-w-3xl mx-auto text-center mb-20">
-                    <h2 className="text-4xl font-bold mb-4">Transparent Pricing</h2>
-                    <p className="text-muted-foreground">Start small and scale as your agent fleet grows.</p>
-                </div>
-
-                <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* Free Tier */}
-                    <div className="rounded-3xl border border-border p-8 bg-background flex flex-col hover:border-blue-200 dark:hover:border-blue-900 transition-colors">
-                        <h3 className="text-xl font-bold">Developer</h3>
-                        <div className="mt-4 mb-8">
-                            <span className="text-4xl font-bold">$0</span>
-                            <span className="text-muted-foreground">/mo</span>
-                        </div>
-                        <ul className="space-y-4 mb-8 flex-1">
-                            {['Up to 5k traces/mo', '7-day retention', '1 user'].map(f => (
-                                <li key={f} className="flex items-center gap-3 text-sm">
-                                    <IconCheck size={18} className="text-blue-500" /> {f}
-                                </li>
-                            ))}
-                        </ul>
-                        <button className="w-full py-3 rounded-full border border-border font-medium hover:bg-secondary transition-colors">Start Free</button>
-                    </div>
-
-                    {/* Pro Tier */}
-                    <div className="rounded-3xl border-2 border-[#1E40AF] p-8 bg-background flex flex-col relative shadow-2xl">
-                        <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 md:translate-x-0 mr-8 bg-[#1E40AF] text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">Most Popular</div>
-                        <h3 className="text-xl font-bold">Startup</h3>
-                        <div className="mt-4 mb-8">
-                            <span className="text-4xl font-bold">$199</span>
-                            <span className="text-muted-foreground">/mo</span>
-                        </div>
-                        <ul className="space-y-4 mb-8 flex-1">
-                            {['1M traces/mo', '30-day retention', '5 users', 'Email Support', 'Custom Evaluators'].map(f => (
-                                <li key={f} className="flex items-center gap-3 text-sm font-medium">
-                                    <IconCheck size={18} className="text-[#1E40AF]" /> {f}
-                                </li>
-                            ))}
-                        </ul>
-                        <button className="w-full py-3 rounded-full bg-[#1E40AF] text-white font-medium hover:bg-[#1e3a8a] transition-colors shadow-lg">Get Started</button>
-                    </div>
-
-                    {/* Enterprise Tier */}
-                    <div className="rounded-3xl border border-border p-8 bg-background flex flex-col hover:border-blue-200 dark:hover:border-blue-900 transition-colors">
-                        <h3 className="text-xl font-bold">Scale</h3>
-                        <div className="mt-4 mb-8">
-                            <span className="text-4xl font-bold">Custom</span>
-                        </div>
-                        <ul className="space-y-4 mb-8 flex-1">
-                            {['Unlimited traces', '90-day retention', 'SSO & SAML', 'VPC Deployment', 'SLA Support'].map(f => (
-                                <li key={f} className="flex items-center gap-3 text-sm">
-                                    <IconCheck size={18} className="text-blue-500" /> {f}
-                                </li>
-                            ))}
-                        </ul>
-                        <button className="w-full py-3 rounded-full border border-border font-medium hover:bg-secondary transition-colors">Contact Sales</button>
-                    </div>
-                </div>
-          </section>
+          {/* Features Section - New with Product Screenshots */}
+          <FeaturesSection />
 
           {/* FAQ */}
-          <section id="faq" className="py-24 px-6 bg-secondary/30">
-                <div className="max-w-2xl mx-auto">
-                    <h2 className="text-3xl font-bold text-center mb-12">Frequently Asked Questions</h2>
+          <section id="faq" className="py-32 px-6 bg-muted/20 border-y border-border">
+                <div className="max-w-3xl mx-auto">
+                    <div className="text-center mb-16">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7C3AED]/10 border border-[#7C3AED]/20 mb-6">
+                            <IconActivity size={16} className="text-[#7C3AED]" />
+                            <span className="text-sm font-medium text-[#7C3AED]">FAQ</span>
+                        </div>
+                        <h2 className="text-4xl font-bold mb-4">Frequently Asked Questions</h2>
+                        <p className="text-muted-foreground">Everything you need to know about OverSight</p>
+                    </div>
+                    
                     <div className="space-y-4">
                         {[
-                            { q: "What is an AI Agent?", a: "An AI Agent is an autonomous system that can perceive its environment, reason about how to achieve goals, and take actions to accomplish them." },
-                            { q: "How does OverSight work?", a: "We provide an SDK that you drop into your agent code. It asynchronously sends telemetry to our cloud or your self-hosted instance without adding latency." },
-                            { q: "Is there a performance impact?", a: "Minimal to none. Our SDK operations are non-blocking and batched to ensure your agent's response time remains unaffected." },
-                            { q: "Can I self-host this?", a: "Yes! The Enterprise plan allows you to deploy the entire stack within your own VPC for complete data isolation." }
+                            { 
+                                q: "What is an AI Agent?", 
+                                a: "An AI Agent is an autonomous system that can perceive its environment, reason about how to achieve goals, and take actions to accomplish them. OverSight provides comprehensive oversight for all your AI agents." 
+                            },
+                            { 
+                                q: "How does OverSight work?", 
+                                a: "We provide an SDK that you integrate into your agent code. It asynchronously sends telemetry to our cloud or your self-hosted instance without adding latency. All monitoring happens in real-time with zero impact on performance." 
+                            },
+                            { 
+                                q: "Is there a performance impact?", 
+                                a: "Minimal to none. Our SDK operations are non-blocking and batched to ensure your agent's response time remains unaffected. Most customers see less than 1ms overhead." 
+                            },
+                            { 
+                                q: "Can I self-host OverSight?", 
+                                a: "Yes! The Enterprise plan allows you to deploy the entire stack within your own VPC for complete data isolation. We support AWS, Azure, GCP, and on-premises deployments." 
+                            },
+                            {
+                                q: "What integrations do you support?",
+                                a: "We integrate with all major LLM providers (OpenAI, Anthropic, Google, etc.), observability tools (Langfuse, DataHub), and authentication systems (Keycloak, Auth0). Custom integrations are available on Enterprise plans."
+                            },
+                            {
+                                q: "How does billing work?",
+                                a: "Billing is based on the number of traces (LLM calls) per month. You can start with our free tier and upgrade as needed. No surprise charges - you only pay for what you use."
+                            }
                         ].map((item, i) => (
                             <AccordionItem 
                                 key={i} 
@@ -444,42 +310,130 @@ export default function LandingPage() {
                             />
                         ))}
                     </div>
-                </div>
-          </section>
 
-          {/* CTA */}
-          <section className="py-24 px-6 relative overflow-hidden">
-                <div className="absolute inset-0 bg-[#1E40AF] z-0">
-                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-                </div>
-                
-                <div className="max-w-4xl mx-auto text-center relative z-10 text-white">
-                    <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-8">Ready to govern your AI fleet?</h2>
-                    <p className="text-xl text-blue-100 mb-10 max-w-2xl mx-auto">Join the leading teams who trust OverSight for their AI governance and monitoring needs.</p>
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-4">
-                        <button className="h-14 px-8 rounded-full bg-white text-blue-900 font-bold text-lg hover:bg-blue-50 transition-colors shadow-xl">
-                            Start Building Now
-                        </button>
-                        <button className="h-14 px-8 rounded-full border border-white/30 hover:bg-white/10 text-white font-semibold text-lg transition-colors backdrop-blur-sm">
-                            Read Documentation
+                    <div className="mt-12 text-center p-8 rounded-2xl bg-card border border-border">
+                        <h3 className="text-xl font-bold mb-2">Still have questions?</h3>
+                        <p className="text-muted-foreground mb-6">Our team is here to help you get started with OverSight</p>
+                        <button className="px-6 py-3 rounded-xl bg-[#7C3AED] text-white font-semibold hover:bg-[#6D28D9] transition-all hover:scale-105 active:scale-95">
+                            Contact Support
                         </button>
                     </div>
                 </div>
           </section>
 
+          {/* CTA */}
+          <section className="py-32 px-6 relative overflow-hidden bg-background">
+                <div className="absolute inset-0 bg-[#7C3AED] z-0">
+                    {/* Animated subtle pattern */}
+                    <div className="absolute inset-0 opacity-10">
+                        <div className="absolute inset-0" style={{
+                            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+                            backgroundSize: '40px 40px'
+                        }} />
+                    </div>
+                </div>
+                
+                <div className="max-w-5xl mx-auto text-center relative z-10 text-white">
+                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 mb-8 backdrop-blur-sm">
+                        <IconArrowRight size={16} className="text-white" />
+                        <span className="text-sm font-medium text-white">Get Started Today</span>
+                    </div>
+                    
+                    <h2 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
+                        Ready to govern your AI fleet?
+                    </h2>
+                    
+                    <p className="text-xl text-purple-100 mb-12 max-w-3xl mx-auto leading-relaxed">
+                        Join the leading teams who trust OverSight for their AI governance, monitoring, and compliance needs. Get started in minutes.
+                    </p>
+                    
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <button onClick={() => window.open('https://github.com/abhi2k4/GRACE_Knowcode_OverSight', '_blank')} className="h-14 px-8 rounded-xl bg-white text-[#7C3AED] font-bold text-lg hover:bg-gray-100 transition-all shadow-2xl hover:scale-105 active:scale-95 flex items-center gap-2">
+                            Get Started Now
+                            <IconBrandGithubFilled size={20} />
+                        </button>
+                        <button onClick={() => window.open('https://oversightai.in', '_blank')} className="h-14 px-8 rounded-xl border-2 border-white/30 hover:bg-white/10 text-white font-semibold text-lg transition-all backdrop-blur-sm hover:scale-105 active:scale-95">
+                            Read Documentation
+                        </button>
+                    </div>
+
+  
+                </div>
+          </section>
+
           {/* Footer */}
-          <footer className="py-12 border-t border-border bg-background">
-             <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-                 <div className="flex items-center gap-2">
-                     <span className="font-bold text-xl text-primary">OverSight AI</span>
-                     <span className="text-xs text-muted-foreground ml-2">© 2026</span>
+          <footer className="py-16 border-t border-border bg-muted/30">
+             <div className="max-w-7xl mx-auto px-6">
+                 <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
+                     {/* Brand */}
+                     <div className="md:col-span-2">
+                         <div className="flex items-center gap-2.5 mb-4">
+                            <div className="relative flex items-center justify-center p-1 rounded-lg">
+                                <img 
+                                    src="/OverSight.png" 
+                                    alt="OverSight Logo" 
+                                    className="w-8 h-8 rounded-md object-cover"
+                                />
+                            </div>
+                            <span className="font-bold text-xl text-primary">OverSight<span className="text-muted-foreground font-normal">AI</span></span>
+                         </div>
+                         <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                             Taming Enterprise AI with unified governance, real-time monitoring, and immutable audit trails.
+                         </p>
+                         <div className="flex items-center gap-3">
+                             {[
+                                 { name: 'Twitter', icon: '𝕏' },
+                                 { name: 'GitHub', icon: '⚡' },
+                                 { name: 'LinkedIn', icon: 'in' },
+                                 { name: 'Discord', icon: '◆' }
+                             ].map((social) => (
+                                 <a 
+                                     key={social.name}
+                                     href="#" 
+                                     className="w-10 h-10 rounded-lg border border-border bg-card flex items-center justify-center hover:border-[#7C3AED] hover:text-[#7C3AED] transition-all hover:scale-110"
+                                     aria-label={social.name}
+                                 >
+                                     <span className="text-sm font-bold">{social.icon}</span>
+                                 </a>
+                             ))}
+                         </div>
+                     </div>
+
+                     {/* Product Links */}
+                     <div>
+                         <h4 className="font-semibold text-sm mb-4">Product</h4>
+                         <ul className="space-y-3 text-sm text-muted-foreground">
+                             {['Features', 'Pricing', 'Documentation', 'API Reference', 'Changelog', 'Roadmap'].map((item) => (
+                                 <li key={item}>
+                                     <a href="#" className="hover:text-[#7C3AED] transition-colors">{item}</a>
+                                 </li>
+                             ))}
+                         </ul>
+                     </div>
+
+                     {/* Company Links */}
+                     <div>
+                         <h4 className="font-semibold text-sm mb-4">Company</h4>
+                         <ul className="space-y-3 text-sm text-muted-foreground">
+                             {['About', 'Blog', 'Careers', 'Contact', 'Privacy Policy', 'Terms of Service'].map((item) => (
+                                 <li key={item}>
+                                     <a href="#" className="hover:text-[#7C3AED] transition-colors">{item}</a>
+                                 </li>
+                             ))}
+                         </ul>
+                     </div>
                  </div>
-                 <div className="flex items-center gap-8 text-sm text-muted-foreground">
-                     <a href="#" className="hover:text-primary transition-colors">Privacy</a>
-                     <a href="#" className="hover:text-primary transition-colors">Terms</a>
-                     <a href="#" className="hover:text-primary transition-colors">Twitter</a>
-                     <a href="#" className="hover:text-primary transition-colors">GitHub</a>
+
+                 {/* Bottom Bar */}
+                 <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
+                     <p className="text-sm text-muted-foreground">
+                         © 2026 OverSight AI. All rights reserved.
+                     </p>
+                     <div className="flex items-center gap-6 text-sm text-muted-foreground">
+                         <a href="#" className="hover:text-[#7C3AED] transition-colors">Status</a>
+                         <a href="#" className="hover:text-[#7C3AED] transition-colors">Security</a>
+                         <a href="#" className="hover:text-[#7C3AED] transition-colors">Compliance</a>
+                     </div>
                  </div>
              </div>
           </footer>
