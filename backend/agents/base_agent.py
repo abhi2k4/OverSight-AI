@@ -7,8 +7,9 @@ from datetime import datetime
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage, ToolMessage
+from langchain.agents import create_agent
+from langchain_core.runnables import Runnable
 
 from backend.api.config import settings, AGENT_PROMPTS
 from backend.agents.tools import TOOL_GROUPS
@@ -41,7 +42,7 @@ class BaseAgent:
         self.system_prompt = system_prompt or AGENT_PROMPTS.get(agent_type, "You are a helpful AI assistant.")
         
         # Create agent
-        self.agent_executor = self._create_agent()
+        self.agent = self._create_agent()
         
         logger.info(f"Initialized {name} ({agent_type}) with {len(self.tools)} tools")
     
@@ -59,30 +60,16 @@ class BaseAgent:
             convert_system_message_to_human=True  # Gemini compatibility
         )
     
-    def _create_agent(self) -> AgentExecutor:
-        """Create the agent executor with tools and memory"""
-        # Create prompt template
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", self.system_prompt),
-            MessagesPlaceholder(variable_name="chat_history", optional=True),
-            ("human", "{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad")
-        ])
-        
-        # Create agent
-        agent = create_tool_calling_agent(self.llm, self.tools, prompt)
-        
-        # Create executor
-        agent_executor = AgentExecutor(
-            agent=agent,
+    def _create_agent(self) -> Runnable:
+        """Create the agent with tools using create_agent (LangChain 1.2+ API)"""
+        # Create agent using create_agent (newer API)
+        agent = create_agent(
+            model=self.llm,
             tools=self.tools,
-            verbose=True,
-            handle_parsing_errors=True,
-            max_iterations=5,
-            return_intermediate_steps=True
+            system_prompt=self.system_prompt
         )
         
-        return agent_executor
+        return agent
     
     async def process_query(
         self,
@@ -104,32 +91,81 @@ class BaseAgent:
         try:
             start_time = datetime.now()
             
-            # Prepare input
-            agent_input = {
-                "input": query,
-                "chat_history": chat_history or []
-            }
+            # Prepare messages for the agent (create_agent uses messages format)
+            messages = []
             
-            # Invoke agent
-            result = await self.agent_executor.ainvoke(agent_input)
+            # Add chat history if provided
+            if chat_history:
+                for msg in chat_history:
+                    if isinstance(msg, dict):
+                        role = msg.get("role", "user")
+                        content = msg.get("content", "")
+                        if role == "user":
+                            messages.append(HumanMessage(content=content))
+                        elif role == "assistant":
+                            messages.append(AIMessage(content=content))
+                    elif isinstance(msg, (HumanMessage, AIMessage, SystemMessage, ToolMessage)):
+                        messages.append(msg)
+            
+            # Add current query
+            messages.append(HumanMessage(content=query))
+            
+            # Invoke agent with messages format (create_agent API)
+            try:
+                result = await self.agent.ainvoke({"messages": messages})
+            except Exception as e:
+                logger.error(f"Error invoking agent: {e}")
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "agent": self.name,
+                    "agent_type": self.agent_type
+                }
+            
+            # Extract response from result
+            # create_agent returns a state dict with messages
+            tool_calls = []
+            response = ""
+            
+            if isinstance(result, dict):
+                # Extract messages from state
+                if "messages" in result:
+                    response_messages = result["messages"]
+                    # Get the last message which should be the AI response
+                    if response_messages:
+                        last_message = response_messages[-1]
+                        if hasattr(last_message, "content"):
+                            response = last_message.content
+                        elif isinstance(last_message, dict):
+                            response = last_message.get("content", str(last_message))
+                        else:
+                            response = str(last_message)
+                        
+                        # Extract tool calls if any
+                        for msg in response_messages:
+                            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                                for tool_call in msg.tool_calls:
+                                    tool_name = tool_call.get("name", "") if isinstance(tool_call, dict) else getattr(tool_call, "name", "")
+                                    tool_args = tool_call.get("args", {}) if isinstance(tool_call, dict) else getattr(tool_call, "args", {})
+                                    tool_calls.append({
+                                        "tool": tool_name,
+                                        "input": tool_args,
+                                        "output": ""  # Tool outputs are handled by the agent
+                                    })
+                elif "output" in result:
+                    response = result["output"]
+                else:
+                    response = str(result)
+            elif hasattr(result, "content"):
+                response = result.content
+            else:
+                response = str(result)
+            
+            if not response:
+                response = "No response generated"
             
             end_time = datetime.now()
             execution_time = (end_time - start_time).total_seconds() * 1000
-            
-            # Extract response and intermediate steps
-            response = result.get("output", "")
-            intermediate_steps = result.get("intermediate_steps", [])
-            
-            # Build tool execution info
-            tool_calls = []
-            for step in intermediate_steps:
-                if len(step) >= 2:
-                    action, observation = step[0], step[1]
-                    tool_calls.append({
-                        "tool": action.tool,
-                        "input": action.tool_input,
-                        "output": str(observation)[:500]  # Truncate long outputs
-                    })
             
             return {
                 "success": True,

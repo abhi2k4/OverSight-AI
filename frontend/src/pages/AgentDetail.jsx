@@ -24,45 +24,6 @@ import { cn } from '@/lib/utils'
 
 const STORAGE_KEY = 'agents_data'
 
-// Default agent data structure
-const defaultAgentData = {
-  'AGT-8821': {
-    id: 'AGT-8821',
-    name: 'Customer Support Agent v2.4',
-    deploymentId: 'agent_774x_delta',
-    lastAudit: 'Oct 24, 2023',
-    runtime: 'AWS-US-East-1',
-    status: 'Flagged',
-    owner: 'Support Team',
-    trustScore: 72,
-    agentType: 'supervisor',
-    description: 'Customer support agent for handling inquiries and support requests',
-    specializationPrompt: 'You are a helpful customer support assistant.',
-    datasets: [
-      { name: 'Customer_Support_Logs', status: 'TRAINING', lastSynced: '5h ago', records: '12,450 records' },
-      { name: 'Internal_KB_Main', status: 'RAG/VECTOR', lastSynced: '1m ago', chunks: '8,102 chunks' },
-      { name: 'Refined_Intent_v2', status: 'FINE-TUNING', lastSynced: '1d ago', drift: 'Verifying Drift' },
-    ],
-    violations: [
-      { type: 'PII Leakage Detected', severity: 'CRITICAL', time: '2 mins ago', description: 'Agent included a customer\'s partial SSN in a generated response during a troubleshooting session.' },
-      { type: 'Hallucinated Quote', severity: 'WARNING', time: '1 hour ago', description: 'Agent offered a "15% Loyalty Discount" which is not present in the current Knowledge Base or Policy sets.' },
-    ],
-    metrics: {
-      fairness: 88,
-      privacy: 42,
-      accuracy: 91,
-      robustness: 65,
-    },
-    logs: [
-      { timestamp: '[14:22:01.03]', type: 'INBOUND', message: 'I\'m unhappy with my refund status of order #9482' },
-      { timestamp: '[14:22:01.05]', type: 'CONTEXT', message: 'Retrieving order details... Status: \'Pending Bank Clearance\'' },
-      { timestamp: '[14:22:02.12]', type: 'POLICY', message: 'Verifying response against [FINANCIAL_COMPLIANCE_V3]' },
-      { timestamp: '[14:22:02.15]', type: 'PASSED', message: 'Score: 0.98. No PII detected.' },
-      { timestamp: '[14:23:44.00]', type: 'VIOLATION', message: 'Agent attempt to use "refund_auth_code_secret" in plaintext response. BLOCKED.' },
-    ],
-  },
-}
-
 export default function AgentDetail() {
   const { id } = useParams()
   const navigate = useNavigate()

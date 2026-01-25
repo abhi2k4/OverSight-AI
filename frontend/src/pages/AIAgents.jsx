@@ -37,58 +37,18 @@ import { useToast } from '@/hooks/use-toast'
 
 const STORAGE_KEY = 'agents_data'
 
-// Default mock agents
-const defaultAgents = [
-  {
-    id: 'AGT-8821',
-    name: 'ClaimsProcessor_v4',
-    owner: 'Ops Team',
-    status: 'Active',
-    riskLevel: 'Low',
-    datasets: ['Claims_2023', 'PII_Data'],
-    trustScore: 98,
-  },
-  {
-    id: 'AGT-9004',
-    name: 'CustomerService_L1',
-    owner: 'Support',
-    status: 'Active',
-    riskLevel: 'Medium',
-    datasets: ['Chat_Logs_Enc'],
-    trustScore: 85,
-  },
-  {
-    id: 'AGT-3102',
-    name: 'FraudDetection_Beta',
-    owner: 'SecOps',
-    status: 'Idle',
-    riskLevel: 'Critical',
-    datasets: ['Tx_Ledger'],
-    trustScore: 42,
-  },
-  {
-    id: 'AGT-3329',
-    name: 'MarketAnalyst_Pro',
-    owner: 'Marketing',
-    status: 'Active',
-    riskLevel: 'Low',
-    datasets: ['Public_Web'],
-    trustScore: 92,
-  },
-  {
-    id: 'AGT-5511',
-    name: 'HR_Onboarding_Bot',
-    owner: 'People Ops',
-    status: 'Active',
-    riskLevel: 'Medium',
-    datasets: ['Emp_Records'],
-    trustScore: 78,
-  },
+// Static agent IDs to filter out (old default agents)
+const STATIC_AGENT_IDS = [
+  'AGT-8821', // ClaimsProcessor_v4
+  'AGT-9004', // CustomerService_L1
+  'AGT-3102', // FraudDetection_Beta
+  'AGT-3329', // MarketAnalyst_Pro
+  'AGT-5511', // HR_Onboarding_Bot
 ]
 
 export default function AIAgents() {
   const navigate = useNavigate()
-  // Lazy initialization: load from localStorage synchronously
+  // Lazy initialization: load from localStorage synchronously, filtering out static agents
   const [agents, setAgents] = useState(() => {
     if (typeof window === 'undefined') return []
     try {
@@ -97,13 +57,20 @@ export default function AIAgents() {
         const parsed = JSON.parse(stored)
         // Only return if valid array with data
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed
+          // Filter out static agents (those with IDs starting with 'AGT-' or in STATIC_AGENT_IDS)
+          const filtered = parsed.filter(
+            (agent) => !STATIC_AGENT_IDS.includes(agent.id) && !agent.id?.startsWith('AGT-')
+          )
+          // If we filtered out agents, save the cleaned list back to localStorage
+          if (filtered.length !== parsed.length) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
+          }
+          return filtered
         }
       }
     } catch (error) {
       console.error('Error loading agents from localStorage:', error)
     }
-    // Return empty array, not defaultAgents
     return []
   })
   const [isDialogOpen, setIsDialogOpen] = useState(false)
@@ -112,6 +79,32 @@ export default function AIAgents() {
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const { toast } = useToast()
+
+  // Clean up static agents from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (Array.isArray(parsed)) {
+            // Filter out static agents
+            const filtered = parsed.filter(
+              (agent) => !STATIC_AGENT_IDS.includes(agent.id) && !agent.id?.startsWith('AGT-')
+            )
+            // If we filtered out agents, save the cleaned list
+            if (filtered.length !== parsed.length) {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
+              // Update state with cleaned list
+              setAgents(filtered)
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error cleaning up static agents:', error)
+      }
+    }
+  }, []) // Run once on mount
 
   // Save to localStorage whenever agents change
   useEffect(() => {
