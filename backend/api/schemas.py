@@ -9,6 +9,7 @@ class EnrichmentMetadata(BaseModel):
     tags: List[str] = Field(..., description="Relevant tags from taxonomy")
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
     entities: Optional[Dict[str, Any]] = Field(None, description="Extracted entities (names, dates, amounts)")
+    estimated_size: Optional[str] = Field(None, description="Estimated dataset size (e.g., '24.5 GB' or '150 MB')")
 
 
 class RecordInput(BaseModel):

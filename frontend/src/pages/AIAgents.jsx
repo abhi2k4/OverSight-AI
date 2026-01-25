@@ -282,28 +282,14 @@ export default function AIAgents() {
             {/* DataHub Status Indicator */}
             <div className="flex items-center gap-2">
               <IconDatabase size={16} className="text-purple-600" />
-              <span className="text-sm text-slate-600">DataHub Context:</span>
               {datahubStatus.loading ? (
                 <div className="flex items-center gap-1">
                   <IconLoader size={14} className="animate-spin text-slate-400" />
                   <span className="text-xs text-slate-500">Checking...</span>
                 </div>
               ) : (
-                <Badge 
-                  variant={datahubStatus.connected ? "default" : "destructive"}
-                  className={cn(
-                    "text-xs",
-                    datahubStatus.connected 
-                      ? "bg-green-100 text-green-700 border-green-200" 
-                      : "bg-red-100 text-red-700 border-red-200"
-                  )}
-                >
-                  {datahubStatus.connected ? "Connected (Port 9002)" : "Disconnected"}
-                </Badge>
-              )}
-              {datahubStatus.connected && (
-                <span className="text-xs text-green-600">
-                  ✓ Dataset context available for enhanced agent responses
+                <span className="text-sm text-slate-600">
+                  {datahubStatus.connected ? "Datahub context connected" : "Datahub context disconnected"}
                 </span>
               )}
             </div>

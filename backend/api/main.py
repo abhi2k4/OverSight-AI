@@ -641,12 +641,11 @@ async def run_enrichment_async(bridge: EnrichmentBridge, batch_size: int = 10):
 
 
 async def process_ingestion_job(job_id: str, file_paths: List[Dict[str, str]]):
-    """Process ingestion and enrichment for uploaded files"""
+    """Process ingestion only for uploaded files (enrichment handled separately)"""
     try:
         job_statuses[job_id]["status"] = "processing"
         job_statuses[job_id]["files_processed"] = 0
         job_statuses[job_id]["records_ingested"] = 0
-        job_statuses[job_id]["records_enriched"] = 0
         job_statuses[job_id]["errors"] = []
         
         # Create sources from uploaded files
@@ -693,21 +692,12 @@ async def process_ingestion_job(job_id: str, file_paths: List[Dict[str, str]]):
         
         job_statuses[job_id]["files_processed"] = len(sources)
         job_statuses[job_id]["records_ingested"] = total_records
+        job_statuses[job_id]["output_dir"] = str(output_dir)
+        job_statuses[job_id]["status"] = "ingested"  # Changed from "completed"
+        job_statuses[job_id]["enrichment_status"] = "pending"  # Ready for enrichment
+        job_statuses[job_id]["progress"] = 100
         
-        # Run enrichment bridge (following test script pattern)
-        print(f"[Job {job_id}] Starting enrichment bridge...")
-        bridge = EnrichmentBridge(output_dir=str(output_dir))
-        try:
-            stats = await run_enrichment_async(bridge, batch_size=10)
-            
-            job_statuses[job_id]["records_enriched"] = stats.get("enriched", 0)
-            job_statuses[job_id]["status"] = "completed"
-            job_statuses[job_id]["progress"] = 100
-            job_statuses[job_id]["enrichment_stats"] = stats
-            
-            print(f"[Job {job_id}] Enrichment complete: {stats}")
-        finally:
-            bridge.close()
+        print(f"[Job {job_id}] Ingestion complete: {total_records} records ingested. Ready for enrichment.")
         
     except Exception as e:
         import traceback
@@ -794,7 +784,11 @@ async def upload_files(
         "records_ingested": 0,
         "records_enriched": 0,
         "errors": [],
-        "file_paths": file_paths
+        "file_paths": file_paths,
+        "output_dir": None,  # Will be set after ingestion
+        "enrichment_status": "pending",  # pending, processing, completed, failed
+        "enrichment_job_id": None,  # Track enrichment job separately
+        "created_at": datetime.now(timezone.utc).isoformat()
     }
     
     # Start background processing
@@ -820,7 +814,7 @@ async def get_ingestion_status(job_id: str):
     status = job_statuses[job_id]
     
     # Calculate progress
-    if status["status"] == "completed":
+    if status["status"] == "ingested" or status["status"] == "completed":
         progress = 100
     elif status["status"] == "failed":
         progress = 0
@@ -836,6 +830,416 @@ async def get_ingestion_status(job_id: str):
     status["progress"] = progress
     
     return status
+
+
+# Enrichment job tracking (separate from ingestion)
+enrichment_job_statuses: Dict[str, Dict[str, Any]] = {}
+
+
+async def process_enrichment_job(ingestion_job_id: str, output_dir: str):
+    """Process enrichment for an ingested dataset"""
+    enrichment_job_id = f"enrich_{ingestion_job_id}_{uuid.uuid4().hex[:8]}"
+    
+    try:
+        # Update ingestion job status
+        if ingestion_job_id in job_statuses:
+            job_statuses[ingestion_job_id]["enrichment_status"] = "processing"
+            job_statuses[ingestion_job_id]["enrichment_job_id"] = enrichment_job_id
+        
+        # Initialize enrichment job status
+        enrichment_job_statuses[enrichment_job_id] = {
+            "enrichment_job_id": enrichment_job_id,
+            "ingestion_job_id": ingestion_job_id,
+            "status": "processing",
+            "progress": 0,
+            "records_enriched": 0,
+            "records_failed": 0,
+            "errors": []
+        }
+        
+        # Run enrichment bridge
+        print(f"[Enrichment Job {enrichment_job_id}] Starting enrichment for ingestion job {ingestion_job_id}...")
+        bridge = EnrichmentBridge(output_dir=output_dir)
+        try:
+            stats = await run_enrichment_async(bridge, batch_size=10)
+            
+            enrichment_job_statuses[enrichment_job_id]["records_enriched"] = stats.get("enriched", 0)
+            enrichment_job_statuses[enrichment_job_id]["records_failed"] = stats.get("failed", 0)
+            enrichment_job_statuses[enrichment_job_id]["status"] = "completed"
+            enrichment_job_statuses[enrichment_job_id]["progress"] = 100
+            enrichment_job_statuses[enrichment_job_id]["stats"] = stats
+            
+            # Update ingestion job status
+            if ingestion_job_id in job_statuses:
+                job_statuses[ingestion_job_id]["enrichment_status"] = "completed"
+                job_statuses[ingestion_job_id]["records_enriched"] = stats.get("enriched", 0)
+            
+            print(f"[Enrichment Job {enrichment_job_id}] Enrichment complete: {stats}")
+        finally:
+            bridge.close()
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[Enrichment Job {enrichment_job_id}] Error: {str(e)}\n{error_trace}")
+        
+        enrichment_job_statuses[enrichment_job_id]["status"] = "failed"
+        enrichment_job_statuses[enrichment_job_id]["error"] = str(e)
+        enrichment_job_statuses[enrichment_job_id]["errors"].append(str(e))
+        
+        # Update ingestion job status
+        if ingestion_job_id in job_statuses:
+            job_statuses[ingestion_job_id]["enrichment_status"] = "failed"
+
+
+@app.post(f"{settings.api_prefix}/enrichment/process")
+async def process_enrichment(
+    background_tasks: BackgroundTasks,
+    ingestion_job_id: Optional[str] = Form(None)
+):
+    """
+    Process enrichment for a specific ingestion job
+    
+    Takes an ingestion job_id and enriches the data from its output directory
+    """
+    if not ingestion_job_id:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail="ingestion_job_id is required"
+        )
+    
+    if ingestion_job_id not in job_statuses:
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND,
+            detail=f"Ingestion job {ingestion_job_id} not found"
+        )
+    
+    job_status = job_statuses[ingestion_job_id]
+    
+    # Check if ingestion is complete
+    if job_status["status"] != "ingested":
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=f"Ingestion job {ingestion_job_id} is not ready for enrichment. Status: {job_status['status']}"
+        )
+    
+    # Check if already enriched
+    if job_status.get("enrichment_status") == "completed":
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=f"Ingestion job {ingestion_job_id} has already been enriched"
+        )
+    
+    # Check if enrichment is already in progress
+    if job_status.get("enrichment_status") == "processing":
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=f"Enrichment is already in progress for ingestion job {ingestion_job_id}"
+        )
+    
+    output_dir = job_status.get("output_dir")
+    if not output_dir:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail=f"Output directory not found for ingestion job {ingestion_job_id}"
+        )
+    
+    # Start enrichment processing
+    background_tasks.add_task(process_enrichment_job, ingestion_job_id, output_dir)
+    
+    return {
+        "ingestion_job_id": ingestion_job_id,
+        "status": "queued",
+        "message": "Enrichment processing started"
+    }
+
+
+@app.get(f"{settings.api_prefix}/enrichment/queue")
+async def get_enrichment_queue():
+    """Get list of ingestion jobs ready for enrichment"""
+    ready_jobs = []
+    
+    for job_id, job_status in job_statuses.items():
+        if job_status["status"] == "ingested" and job_status.get("enrichment_status") == "pending":
+            ready_jobs.append({
+                "job_id": job_id,
+                "status": job_status["status"],
+                "files_processed": job_status.get("files_processed", 0),
+                "records_ingested": job_status.get("records_ingested", 0),
+                "output_dir": job_status.get("output_dir"),
+                "enrichment_status": job_status.get("enrichment_status", "pending"),
+                "created_at": job_status.get("created_at")
+            })
+    
+    return {
+        "total": len(ready_jobs),
+        "jobs": ready_jobs
+    }
+
+
+@app.get(f"{settings.api_prefix}/enrichment/status/{{ingestion_job_id}}")
+async def get_enrichment_status(ingestion_job_id: str):
+    """Get enrichment status for an ingestion job"""
+    if ingestion_job_id not in job_statuses:
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND,
+            detail=f"Ingestion job {ingestion_job_id} not found"
+        )
+    
+    job_status = job_statuses[ingestion_job_id]
+    enrichment_job_id = job_status.get("enrichment_job_id")
+    
+    result = {
+        "ingestion_job_id": ingestion_job_id,
+        "enrichment_status": job_status.get("enrichment_status", "pending"),
+        "records_enriched": job_status.get("records_enriched", 0),
+        "records_ingested": job_status.get("records_ingested", 0)
+    }
+    
+    # If enrichment job exists, include its details
+    if enrichment_job_id and enrichment_job_id in enrichment_job_statuses:
+        enrichment_status = enrichment_job_statuses[enrichment_job_id]
+        result["enrichment_job"] = {
+            "enrichment_job_id": enrichment_job_id,
+            "status": enrichment_status.get("status"),
+            "progress": enrichment_status.get("progress", 0),
+            "records_enriched": enrichment_status.get("records_enriched", 0),
+            "records_failed": enrichment_status.get("records_failed", 0)
+        }
+    
+    return result
+
+
+@app.get(f"{settings.api_prefix}/ingest/jobs")
+async def list_ingestion_jobs():
+    """List all ingestion jobs with their status"""
+    jobs = []
+    
+    for job_id, job_status in job_statuses.items():
+        jobs.append({
+            "job_id": job_id,
+            "status": job_status.get("status"),
+            "files_processed": job_status.get("files_processed", 0),
+            "total_files": job_status.get("total_files", 0),
+            "records_ingested": job_status.get("records_ingested", 0),
+            "records_enriched": job_status.get("records_enriched", 0),
+            "output_dir": job_status.get("output_dir"),
+            "enrichment_status": job_status.get("enrichment_status", "pending"),
+            "created_at": job_status.get("created_at"),
+            "progress": job_status.get("progress", 0)
+        })
+    
+    # Sort by created_at descending (newest first)
+    jobs.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    
+    return {
+        "total": len(jobs),
+        "jobs": jobs
+    }
+
+
+@app.get(f"{settings.api_prefix}/output/collections")
+async def get_output_collections(
+    source_system: Optional[str] = None,
+    entity_type: Optional[str] = None,
+    limit: int = DEFAULT_PAGE_LIMIT,
+    offset: int = 0
+):
+    """
+    Read collection data from output directory (fallback when database is empty)
+    
+    Searches through data/uploads/*/output/ directory structure to find
+    matching source_system and entity_type in JSONL files.
+    """
+    try:
+        import json
+        from pathlib import Path
+        
+        uploads_dir = Path("data/uploads")
+        if not uploads_dir.exists():
+            return {
+                "total": 0,
+                "page": 1,
+                "limit": limit,
+                "records": []
+            }
+        
+        all_records = []
+        
+        # Search through all job directories
+        for job_dir in uploads_dir.iterdir():
+            if not job_dir.is_dir():
+                continue
+            
+            output_dir = job_dir / "output"
+            if not output_dir.exists():
+                continue
+            
+            # Find all JSONL files matching the criteria
+            for jsonl_file in output_dir.rglob("data.jsonl"):
+                # Extract source_system and entity_type from path
+                # Path structure: .../output/{source_system}/{entity_type}/{date}/data.jsonl
+                parts = jsonl_file.parts
+                if len(parts) < 4:
+                    continue
+                
+                file_source_system = parts[-4]
+                file_entity_type = parts[-3]
+                
+                # Filter by source_system and entity_type if provided
+                if source_system and file_source_system != source_system:
+                    continue
+                if entity_type and file_entity_type != entity_type:
+                    continue
+                
+                # Get file size for size calculation
+                file_size_bytes = jsonl_file.stat().st_size if jsonl_file.exists() else 0
+                
+                # Try to get enriched metadata from database if available
+                from backend.database import SessionLocal
+                db = SessionLocal()
+                has_enriched_data = False
+                try:
+                    repository = get_enriched_record_repository(db)
+                    # Check if we have enriched records for this source/entity
+                    sample_enriched, _ = repository.get_all(
+                        limit=1,
+                        offset=0,
+                        source_system=file_source_system,
+                        entity_type=file_entity_type
+                    )
+                    has_enriched_data = len(sample_enriched) > 0
+                except:
+                    has_enriched_data = False
+                finally:
+                    db.close()
+                
+                # Read JSONL file
+                try:
+                    record_count = 0
+                    sample_records = []
+                    
+                    with open(jsonl_file, 'r', encoding='utf-8') as f:
+                        for line in f:
+                            line = line.strip()
+                            if not line:
+                                continue
+                            
+                            try:
+                                record_data = json.loads(line)
+                                
+                                # Extract raw_data from the envelope structure
+                                raw_data = record_data.get("record") or record_data.get("raw_record") or record_data
+                                
+                                # Try to get enriched metadata from database if available
+                                enriched_metadata = None
+                                if has_enriched_data:
+                                    try:
+                                        db = SessionLocal()
+                                        repository = get_enriched_record_repository(db)
+                                        # Find matching enriched record by raw_data
+                                        raw_data_str = json.dumps(raw_data, sort_keys=True)
+                                        enriched_records = repository.get_all_records()
+                                        for er in enriched_records:
+                                            if (er.source_system == file_source_system and 
+                                                er.entity_type == file_entity_type and
+                                                json.dumps(er.raw_data, sort_keys=True) == raw_data_str):
+                                                enriched_metadata = parse_metadata_json(er.enriched_metadata)
+                                                break
+                                        db.close()
+                                    except:
+                                        pass
+                                
+                                # If no enriched metadata found, create basic metadata
+                                if not enriched_metadata:
+                                    # Calculate size estimate from this record
+                                    record_size_bytes = len(json.dumps(raw_data).encode('utf-8'))
+                                    estimated_size_mb = (record_size_bytes * 1000) / (1024 * 1024)  # Rough estimate
+                                    if estimated_size_mb < 1:
+                                        estimated_size = f"{estimated_size_mb * 1024:.2f} KB"
+                                    elif estimated_size_mb < 1024:
+                                        estimated_size = f"{estimated_size_mb:.2f} MB"
+                                    else:
+                                        estimated_size = f"{estimated_size_mb / 1024:.2f} GB"
+                                    
+                                    # Extract tags from record structure to infer compliance
+                                    tags = []
+                                    raw_data_str = json.dumps(raw_data).lower()
+                                    if any(keyword in raw_data_str for keyword in ['email', 'name', 'address', 'phone', 'ssn']):
+                                        tags.append('pii')
+                                    if 'gdpr' in raw_data_str or 'eu' in raw_data_str:
+                                        tags.append('GDPR')
+                                    if any(keyword in raw_data_str for keyword in ['health', 'medical', 'patient', 'diagnosis']):
+                                        tags.append('HIPAA')
+                                    if any(keyword in raw_data_str for keyword in ['card', 'payment', 'credit', 'cvv']):
+                                        tags.append('PCI-DSS')
+                                    
+                                    enriched_metadata = {
+                                        "description": f"Data record from {file_source_system}",
+                                        "tags": tags if tags else ["structured"],
+                                        "confidence": 0.7,  # Lower confidence for unenriched data
+                                        "estimated_size": estimated_size
+                                    }
+                                
+                                # Create a record in the same format as enriched records
+                                record = {
+                                    "id": len(all_records) + 1,  # Temporary ID
+                                    "source_system": file_source_system,
+                                    "entity_type": file_entity_type,
+                                    "raw_data": raw_data,
+                                    "enriched_metadata": enriched_metadata,
+                                    "enrichment_timestamp": record_data.get("ingestion_timestamp") or datetime.now(timezone.utc).isoformat()
+                                }
+                                
+                                all_records.append(record)
+                                record_count += 1
+                                
+                                # Store sample for size calculation
+                                if len(sample_records) < 10:
+                                    sample_records.append(record)
+                                    
+                            except json.JSONDecodeError as e:
+                                print(f"Error parsing line in {jsonl_file}: {e}")
+                                continue
+                    
+                    # Update size estimates based on actual file size if we have records
+                    if record_count > 0 and sample_records:
+                        avg_record_size = file_size_bytes / record_count if record_count > 0 else 0
+                        total_size_bytes = avg_record_size * record_count
+                        
+                        # Format size
+                        if total_size_bytes < 1024 * 1024:
+                            formatted_size = f"{total_size_bytes / 1024:.2f} KB"
+                        elif total_size_bytes < 1024 * 1024 * 1024:
+                            formatted_size = f"{total_size_bytes / (1024 * 1024):.2f} MB"
+                        else:
+                            formatted_size = f"{total_size_bytes / (1024 * 1024 * 1024):.2f} GB"
+                        
+                        # Update estimated_size in metadata for sample records
+                        for record in sample_records:
+                            if record.get("enriched_metadata"):
+                                record["enriched_metadata"]["estimated_size"] = formatted_size
+                                
+                except Exception as e:
+                    print(f"Error reading {jsonl_file}: {e}")
+                    continue
+        
+        # Apply pagination
+        total = len(all_records)
+        paginated_records = all_records[offset:offset + limit]
+        
+        return {
+            "total": total,
+            "page": (offset // limit) + 1,
+            "limit": limit,
+            "records": paginated_records
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_ERROR,
+            detail=f"Failed to read from output directory: {str(e)}"
+        )
 
 
 @app.delete(f"{settings.api_prefix}/enriched")

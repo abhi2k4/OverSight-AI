@@ -36,23 +36,37 @@ class EnrichmentService:
         return f"""You are a data classification assistant for an enterprise AI governance system.
 Your task is to analyze data records and generate:
 1. A concise description (max 2 sentences) summarizing the record's content
-2. Relevant tags from the predefined taxonomy
+2. Relevant tags from the predefined taxonomy (including compliance frameworks when applicable)
 3. A confidence score (0-1) for your classification
+4. An optional estimated size for the dataset
 
 Available tags:
 {taxonomy_list}
 
+Compliance Framework Guidelines:
+- GDPR: Include when data contains EU personal data, email addresses, names, addresses, or any personally identifiable information of EU residents
+- HIPAA: Include when data contains health information, medical records, patient data, diagnoses, treatments, or any protected health information
+- CCPA: Include when data contains California resident personal information, including names, addresses, purchase history, or browsing behavior
+- PCI-DSS: Include when data contains payment card information, credit card numbers, CVV codes, or any payment processing data
+- SOC2: Include when data is security-sensitive, contains access logs, authentication data, or system security information
+
 Rules:
 - Use ONLY tags from the provided taxonomy above
-- Assign multiple tags if the record spans domains (most records will have 2-4 tags)
+- Assign multiple tags if the record spans domains (most records will have 2-5 tags)
+- ALWAYS include relevant compliance framework tags (GDPR, HIPAA, CCPA, PCI-DSS, SOC2) when the data contains applicable information
 - Be conservative—only assign tags you're confident about
 - Descriptions should be factual and concise
 - Always return valid JSON in the exact format specified
-- Confidence should reflect how certain you are about the classification"""
+- Confidence should reflect how certain you are about the classification (be realistic, not overly optimistic)
+- If estimating size, base it on the record structure and typical dataset sizes"""
     
     def _build_user_prompt(self, source_system: str, entity_type: str, raw_data: Dict[str, Any]) -> str:
         """Build the user prompt with record data"""
         formatted_data = json.dumps(raw_data, indent=2)
+        
+        # Estimate record size in bytes
+        record_size_bytes = len(json.dumps(raw_data).encode('utf-8'))
+        record_size_kb = record_size_bytes / 1024
         
         return f"""Analyze this record and provide enrichment metadata.
 
@@ -62,14 +76,26 @@ Entity type: {entity_type}
 Record data:
 {formatted_data}
 
+Record size: approximately {record_size_kb:.2f} KB
+
 Return ONLY a JSON object with this exact structure:
 {{
   "description": "A concise 1-2 sentence summary",
-  "tags": ["tag1", "tag2"],
-  "confidence": 0.95
+  "tags": ["tag1", "tag2", "GDPR"],
+  "confidence": 0.95,
+  "estimated_size": "150 MB"
 }}
 
-Make sure the tags are ONLY from the available taxonomy list provided in the system prompt."""
+Important:
+- Tags must ONLY be from the available taxonomy list provided in the system prompt
+- Include compliance framework tags (GDPR, HIPAA, CCPA, PCI-DSS, SOC2) when the data contains relevant information:
+  * GDPR: EU personal data, emails, names, addresses
+  * HIPAA: Health information, medical records, patient data
+  * CCPA: California resident personal information
+  * PCI-DSS: Payment card information, credit card numbers
+  * SOC2: Security-sensitive data, access logs
+- estimated_size is optional but helpful - estimate based on record structure and typical dataset sizes (format: "X MB" or "X GB")
+- Confidence should be realistic based on how certain you are about the classification"""
     
     def _parse_llm_response(self, response_text: str) -> EnrichmentMetadata:
         """Parse LLM response into EnrichmentMetadata"""
@@ -93,14 +119,16 @@ Make sure the tags are ONLY from the available taxonomy list provided in the sys
                 description=data.get("description", "Data record"),
                 tags=valid_tags,
                 confidence=min(max(data.get("confidence", NORMAL_CONFIDENCE_DEFAULT), 0.0), 1.0),
-                entities=data.get("entities")
+                entities=data.get("entities"),
+                estimated_size=data.get("estimated_size")
             )
         except Exception as e:
             print(f"Error parsing LLM response: {e}")
             return EnrichmentMetadata(
                 description="Data record requiring manual review",
                 tags=DEFAULT_TAGS,
-                confidence=FALLBACK_CONFIDENCE_DEFAULT
+                confidence=FALLBACK_CONFIDENCE_DEFAULT,
+                estimated_size=None
             )
     
     async def enrich_record(
@@ -150,7 +178,8 @@ Make sure the tags are ONLY from the available taxonomy list provided in the sys
                     return EnrichmentMetadata(
                         description=f"Error enriching {entity_type} record from {source_system}",
                         tags=DEFAULT_TAGS,
-                        confidence=ERROR_CONFIDENCE_DEFAULT
+                        confidence=ERROR_CONFIDENCE_DEFAULT,
+                        estimated_size=None
                     )
     
     async def enrich_records_batch(

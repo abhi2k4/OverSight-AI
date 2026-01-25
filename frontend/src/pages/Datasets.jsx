@@ -22,6 +22,7 @@ import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
 import UploadDialog from '../components/UploadDialog'
 import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -116,7 +117,17 @@ export default function Datasets() {
   // Handle row click to navigate to detail page
   const handleRowClick = (row) => {
     if (row.id) {
-      navigate(`/datasets/${row.id}`)
+      // If we have source_system and entity_type, use them as URL params
+      if (row.source_system && row.entity_type) {
+        const params = new URLSearchParams({
+          source_system: row.source_system,
+          entity_type: row.entity_type
+        });
+        navigate(`/datasets/${row.id}?${params.toString()}`)
+      } else {
+        // Fallback to just ID (for backward compatibility)
+        navigate(`/datasets/${row.id}`)
+      }
     }
   }
 
@@ -196,62 +207,110 @@ export default function Datasets() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets))
   }, [datasets])
 
-  // Fetch enriched records and transform to dataset format
-  const fetchEnrichedRecords = async () => {
+  // Fetch ingested collections from output directory (ingestion results only)
+  const fetchIngestedCollections = async () => {
     try {
       const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
-      const response = await fetch(`${apiBase}/enriched?limit=1000`)
+      const response = await fetch(`${apiBase}/output/collections?limit=1000`)
       
       if (!response.ok) {
-        throw new Error(`Failed to fetch enriched records: ${response.status}`)
+        throw new Error(`Failed to fetch ingested collections: ${response.status}`)
       }
 
       const data = await response.json()
-      const enrichedDatasets = transformEnrichedToDatasets(data.records)
+      const ingestedDatasets = transformIngestedToDatasets(data.records || [])
       
       // Merge with existing datasets, avoiding duplicates
       setDatasets(prev => {
         const existingNames = new Set(prev.map(d => d.name))
-        const newDatasets = enrichedDatasets.filter(d => !existingNames.has(d.name))
+        const newDatasets = ingestedDatasets.filter(d => !existingNames.has(d.name))
         return [...prev, ...newDatasets]
       })
     } catch (error) {
-      console.error('Error fetching enriched records:', error)
+      console.error('Error fetching ingested collections:', error)
       toast({
         variant: 'destructive',
-        title: 'Failed to Load Enriched Data',
-        description: 'Could not fetch enriched records. Please try again later.',
+        title: 'Failed to Load Ingested Data',
+        description: 'Could not fetch ingested collections. Please try again later.',
       })
     }
   }
 
-  // Transform enriched records to dataset format
-  const transformEnrichedToDatasets = (enrichedRecords) => {
+  // Calculate size from records
+  const calculateDatasetSize = (records, recordCount) => {
+    if (!records || records.length === 0) return 'N/A'
+    
+    // Try to get estimated_size from first record's metadata
+    const firstRecord = records[0]
+    if (firstRecord?.enriched_metadata?.estimated_size) {
+      return firstRecord.enriched_metadata.estimated_size
+    }
+    
+    // Calculate from actual record data
+    try {
+      // Calculate average record size in bytes
+      let totalBytes = 0
+      let sampleSize = Math.min(records.length, 100) // Sample up to 100 records
+      
+      for (let i = 0; i < sampleSize; i++) {
+        const recordSize = new Blob([JSON.stringify(records[i].raw_data || {})]).size
+        totalBytes += recordSize
+      }
+      
+      const avgRecordSize = totalBytes / sampleSize
+      const totalSizeBytes = avgRecordSize * recordCount
+      
+      // Convert to MB or GB
+      if (totalSizeBytes < 1024 * 1024) {
+        return `${(totalSizeBytes / 1024).toFixed(2)} KB`
+      } else if (totalSizeBytes < 1024 * 1024 * 1024) {
+        return `${(totalSizeBytes / (1024 * 1024)).toFixed(2)} MB`
+      } else {
+        return `${(totalSizeBytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+      }
+    } catch (error) {
+      console.error('Error calculating dataset size:', error)
+      return 'N/A'
+    }
+  }
+
+  // Transform ingested records to dataset format (raw data, no enrichment)
+  const transformIngestedToDatasets = (ingestedRecords) => {
     // Group by source_system and entity_type
     const grouped = {}
     
-    enrichedRecords.forEach(record => {
+    ingestedRecords.forEach(record => {
       const key = `${record.source_system}_${record.entity_type}`
       if (!grouped[key]) {
         grouped[key] = {
           name: `${record.source_system} - ${record.entity_type}`,
-          description: record.enriched_metadata?.description || 'No description available',
+          description: 'Ingested data - ready for enrichment',
           type: 'Structured',
-          sensitivity: deriveSensitivity(record.enriched_metadata?.tags || []),
+          sensitivity: 'Low', // Default for unenriched data
           records: 0,
-          size: 'N/A',
-          lastAccessed: formatTimestamp(record.enrichment_timestamp),
-          status: 'active',
-          compliance: extractCompliance(record.enriched_metadata?.tags || []),
+          size: 'N/A', // Will be calculated after grouping
+          lastAccessed: formatTimestamp(record.enrichment_timestamp || new Date().toISOString()),
+          status: 'ingested', // New status for ingested-only data
+          compliance: [], // No compliance tags for unenriched data
           id: key, // Use composite key as ID
           source_system: record.source_system,
           entity_type: record.entity_type,
+          _records: [], // Store records for size calculation
+          enrichmentStatus: 'pending', // Ready for enrichment
         }
       }
       grouped[key].records++
+      grouped[key]._records.push(record)
     })
 
-    return Object.values(grouped)
+    // Calculate size for each group
+    const datasets = Object.values(grouped)
+    datasets.forEach(dataset => {
+      dataset.size = calculateDatasetSize(dataset._records, dataset.records)
+      delete dataset._records // Clean up temporary storage
+    })
+
+    return datasets
   }
 
   // Derive sensitivity from tags
@@ -294,11 +353,16 @@ export default function Datasets() {
 
   // Handle upload completion
   const handleUploadComplete = () => {
-    // Fetch enriched records after upload completes
+    // Fetch ingested collections after upload completes
     setTimeout(() => {
-      fetchEnrichedRecords()
-    }, 1000) // Small delay to ensure backend has processed
+      fetchIngestedCollections()
+    }, 2000) // Small delay to ensure backend has processed ingestion
   }
+
+  // Fetch ingested collections on mount
+  useEffect(() => {
+    fetchIngestedCollections()
+  }, [])
 
   // Filter datasets based on search and filters
   const filteredDatasets = useMemo(() => {
@@ -581,9 +645,19 @@ export default function Datasets() {
     {
       header: 'Status',
       accessor: 'status',
-      width: '100px',
+      width: '140px',
       nowrap: true,
-      render: (row) => <StatusBadge status={row.status} size="sm" />,
+      render: (row) => {
+        // Show enrichment status for ingested data
+        if (row.status === 'ingested' || row.enrichmentStatus === 'pending') {
+          return (
+            <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">
+              Ready for Enrichment
+            </Badge>
+          )
+        }
+        return <StatusBadge status={row.status} size="sm" />
+      },
     },
     {
       header: 'Last Accessed',
@@ -820,7 +894,7 @@ export default function Datasets() {
         )}
 
         {/* Data Lineage Overview */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+        {/* <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
           <h2 className="text-lg font-semibold text-slate-900 mb-6">Data Lineage Overview</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-200">
@@ -839,7 +913,7 @@ export default function Datasets() {
               <p className="text-xs text-purple-700 mt-2">AI agents & services</p>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Upload Dialog */}
         <UploadDialog

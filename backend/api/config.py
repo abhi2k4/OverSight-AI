@@ -76,7 +76,14 @@ TAXONOMY: Dict[str, str] = {
     # Content Types
     "structured": "Structured data with clear schema",
     "unstructured": "Text documents, emails, notes",
-    "media": "Images, videos, audio files"
+    "media": "Images, videos, audio files",
+    
+    # Compliance Frameworks
+    "GDPR": "EU General Data Protection Regulation compliance - applies to EU personal data, email addresses, names, addresses",
+    "HIPAA": "Health Insurance Portability and Accountability Act compliance - applies to health information, medical records, patient data",
+    "CCPA": "California Consumer Privacy Act compliance - applies to California resident personal information",
+    "PCI-DSS": "Payment Card Industry Data Security Standard compliance - applies to payment card information, credit card numbers",
+    "SOC2": "System and Organization Controls 2 compliance - applies to security-sensitive data and systems"
 }
 
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   IconChevronLeft,
   IconDatabase,
@@ -27,6 +27,7 @@ import { cn } from '@/lib/utils';
 
 export default function DatasetDetail() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,30 +37,57 @@ export default function DatasetDetail() {
   const [totalRecords, setTotalRecords] = useState(0);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [dataSource, setDataSource] = useState('database'); // 'database' or 'output'
   const limit = 20;
 
   // Parse ID to extract source_system and entity_type
-  const parseCollectionId = (collectionId) => {
+  // First try URL search params, then fallback to parsing ID
+  const parseCollectionId = (collectionId, searchParams) => {
+    // Prefer URL search params if available
+    const sourceSystemParam = searchParams.get('source_system');
+    const entityTypeParam = searchParams.get('entity_type');
+    
+    if (sourceSystemParam && entityTypeParam) {
+      return {
+        sourceSystem: decodeURIComponent(sourceSystemParam),
+        entityType: decodeURIComponent(entityTypeParam)
+      };
+    }
+    
+    // Fallback: try to parse from ID (for backward compatibility)
     if (!collectionId) return null;
+    
+    // Try base64 decode first
+    try {
+      const decoded = atob(collectionId);
+      const parts = decoded.split('|');
+      if (parts.length === 2) {
+        return { sourceSystem: parts[0], entityType: parts[1] };
+      }
+    } catch (e) {
+      // Not base64, continue with string parsing
+    }
+    
+    // Try splitting by underscore (old format - may not work correctly)
     const parts = collectionId.split('_');
     if (parts.length < 2) return null;
     
-    // Handle cases where entity_type might contain underscores
+    // This is a best-effort parse - may not work if source_system has underscores
     const sourceSystem = parts[0];
     const entityType = parts.slice(1).join('_');
     
     return { sourceSystem, entityType };
   };
 
-  // Fetch collection records
+  // Fetch collection records from database, with fallback to output directory
   useEffect(() => {
     const fetchCollectionData = async () => {
       setLoading(true);
       setError(null);
 
-      const parsed = parseCollectionId(id);
+      const parsed = parseCollectionId(id, searchParams);
       if (!parsed) {
-        setError('Invalid collection ID format');
+        setError('Invalid collection ID format. Missing source_system or entity_type.');
         setLoading(false);
         return;
       }
@@ -76,12 +104,17 @@ export default function DatasetDetail() {
         }
 
         const data = await response.json();
-        setRecords(data.records || []);
-        setTotalRecords(data.total || 0);
+        const dbRecords = data.records || [];
+        const dbTotal = data.total || 0;
 
-        // Build collection info from first record
-        if (data.records && data.records.length > 0) {
-          const firstRecord = data.records[0];
+        // If database has records, use them
+        if (dbRecords.length > 0) {
+          setDataSource('database');
+          setRecords(dbRecords);
+          setTotalRecords(dbTotal);
+
+          // Build collection info from first record
+          const firstRecord = dbRecords[0];
           const metadata = firstRecord.enriched_metadata || {};
           const tags = metadata.tags || [];
           
@@ -94,19 +127,72 @@ export default function DatasetDetail() {
             sensitivity: deriveSensitivity(tags),
             compliance: extractCompliance(tags),
             lastUpdated: firstRecord.enrichment_timestamp,
-            avgConfidence: calculateAvgConfidence(data.records),
+            avgConfidence: calculateAvgConfidence(dbRecords),
           });
+          setLoading(false);
+        } else {
+          // Fallback: try to read from output directory
+          console.log('No database records found, trying output directory...');
+          await fetchFromOutputDirectory(parsed.sourceSystem, parsed.entityType);
         }
       } catch (err) {
-        console.error('Error fetching collection data:', err);
-        setError(err.message || 'Failed to load collection data');
-      } finally {
-        setLoading(false);
+        console.error('Error fetching collection data from database:', err);
+        // Try fallback to output directory
+        console.log('Database query failed, trying output directory...');
+        await fetchFromOutputDirectory(parsed.sourceSystem, parsed.entityType);
       }
     };
 
     fetchCollectionData();
-  }, [id, currentPage]);
+  }, [id, currentPage, searchParams]);
+
+  // Fetch data from output directory as fallback
+  const fetchFromOutputDirectory = async (sourceSystem, entityType) => {
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+      const url = `${apiBase}/output/collections?source_system=${encodeURIComponent(sourceSystem)}&entity_type=${encodeURIComponent(entityType)}&limit=${limit}&offset=${(currentPage - 1) * limit}`;
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch from output directory: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.records && data.records.length > 0) {
+        setDataSource('output');
+        setRecords(data.records);
+        setTotalRecords(data.total || data.records.length);
+
+        // Build collection info from first record
+        const firstRecord = data.records[0];
+        const metadata = firstRecord.enriched_metadata || {};
+        const tags = metadata.tags || [];
+        
+        setCollectionInfo({
+          name: `${sourceSystem} - ${entityType}`,
+          sourceSystem: sourceSystem,
+          entityType: entityType,
+          description: metadata.description || 'No description available',
+          tags: tags,
+          sensitivity: deriveSensitivity(tags),
+          compliance: extractCompliance(tags),
+          lastUpdated: firstRecord.enrichment_timestamp || new Date().toISOString(),
+          avgConfidence: calculateAvgConfidence(data.records),
+        });
+      } else {
+        setError('No collection data found in database or output directory');
+        setCollectionInfo(null);
+      }
+    } catch (err) {
+      console.error('Error fetching from output directory:', err);
+      setError('No collection data found. Data may not have been processed yet.');
+      setCollectionInfo(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const deriveSensitivity = (tags) => {
     const tagStr = tags.join(' ').toLowerCase();
@@ -156,7 +242,7 @@ export default function DatasetDetail() {
 
   // Handle delete collection
   const handleDelete = async () => {
-    const parsed = parseCollectionId(id);
+    const parsed = parseCollectionId(id, searchParams);
     if (!parsed || !collectionInfo) return;
 
     setDeleting(true);
@@ -375,6 +461,11 @@ export default function DatasetDetail() {
               <div className="flex items-center gap-2">
                 <IconDatabase className="w-5 h-5 text-slate-600" />
                 <h3 className="font-semibold text-slate-900">Records</h3>
+                {dataSource === 'output' && (
+                  <Badge variant="outline" className="ml-2 text-xs">
+                    From Output Directory
+                  </Badge>
+                )}
               </div>
               <p className="text-sm text-slate-600">
                 Showing {((currentPage - 1) * limit) + 1} - {Math.min(currentPage * limit, totalRecords)} of {totalRecords}

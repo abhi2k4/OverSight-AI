@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import {
   IconChevronLeft,
   IconDownload,
@@ -15,6 +17,17 @@ import {
   IconRobot,
   IconSearch,
   IconBrain,
+  IconBuilding,
+  IconExternalLink,
+  IconTag,
+  IconShield,
+  IconCurrencyDollar,
+  IconUser,
+  IconCalendar,
+  IconShoppingCart,
+  IconCode,
+  IconChevronDown,
+  IconChevronUp,
 } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -129,7 +142,14 @@ export default function AgentDetail() {
           })
           setDatahubContext(contextData)
           
-          if (contextData.hasContext) {
+          // Only add context message if there are actual datasets found
+          const hasDatasets = contextData.hasContext && (
+            (contextData.datasets && contextData.datasets.length > 0) ||
+            (contextData.domainDatasets && contextData.domainDatasets.length > 0) ||
+            (contextData.taggedDatasets && contextData.taggedDatasets.length > 0)
+          );
+          
+          if (hasDatasets) {
             // Add context indicator message
             setMessages((prev) => [
               ...prev,
@@ -600,13 +620,13 @@ export default function AgentDetail() {
                     <div
                       key={idx}
                       className={cn(
-                        'flex gap-3',
+                        'flex gap-3 items-start',
                         message.role === 'user' ? 'justify-end' : 'justify-start'
                       )}
                     >
                       {message.role !== 'user' && (
                         <div className={cn(
-                          'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+                          'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-1',
                           message.role === 'context' 
                             ? 'bg-purple-100' 
                             : 'bg-blue-100'
@@ -622,7 +642,7 @@ export default function AgentDetail() {
                         className={cn(
                           'rounded-lg px-4 py-3 max-w-[80%]',
                           message.role === 'user'
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-blue-50 text-blue-900 border border-blue-200'
                             : message.role === 'error'
                               ? 'bg-red-50 text-red-700 border border-red-200'
                               : message.role === 'context'
@@ -630,7 +650,43 @@ export default function AgentDetail() {
                                 : 'bg-slate-100 text-slate-900'
                         )}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        <div className={cn(
+                          "text-sm markdown-content",
+                          message.role === 'user' ? 'text-blue-900' : 'text-slate-900'
+                        )}>
+                          <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              p: ({node, ...props}) => <p className="my-2 leading-relaxed" {...props} />,
+                              strong: ({node, ...props}) => <strong className={cn("font-semibold", message.role === 'user' ? 'text-blue-900' : 'text-slate-900')} {...props} />,
+                              em: ({node, ...props}) => <em className="italic" {...props} />,
+                              h1: ({node, ...props}) => <h1 className={cn("text-lg font-semibold mt-4 mb-2", message.role === 'user' ? 'text-blue-900' : 'text-slate-900')} {...props} />,
+                              h2: ({node, ...props}) => <h2 className={cn("text-base font-semibold mt-3 mb-2", message.role === 'user' ? 'text-blue-900' : 'text-slate-900')} {...props} />,
+                              h3: ({node, ...props}) => <h3 className={cn("text-sm font-semibold mt-3 mb-1", message.role === 'user' ? 'text-blue-900' : 'text-slate-900')} {...props} />,
+                              ul: ({node, ...props}) => <ul className="list-disc list-inside my-2 space-y-1 ml-4" {...props} />,
+                              ol: ({node, ...props}) => <ol className="list-decimal list-inside my-2 space-y-1 ml-4" {...props} />,
+                              li: ({node, ...props}) => <li className="leading-relaxed" {...props} />,
+                              code: ({node, inline, ...props}) => 
+                                inline ? (
+                                  <code className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
+                                ) : (
+                                  <code className="block bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto text-xs font-mono my-2" {...props} />
+                                ),
+                              pre: ({node, ...props}) => <pre className="bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto text-xs font-mono my-2" {...props} />,
+                              blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-slate-300 pl-4 my-2 italic text-slate-700" {...props} />,
+                              a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-800 underline" {...props} />,
+                              hr: ({node, ...props}) => <hr className="my-4 border-slate-200" {...props} />,
+                              table: ({node, ...props}) => <table className="border-collapse border border-slate-300 my-2 w-full" {...props} />,
+                              thead: ({node, ...props}) => <thead className="bg-slate-100" {...props} />,
+                              tbody: ({node, ...props}) => <tbody {...props} />,
+                              tr: ({node, ...props}) => <tr className="border-b border-slate-200" {...props} />,
+                              th: ({node, ...props}) => <th className="border border-slate-300 px-3 py-2 text-left font-semibold" {...props} />,
+                              td: ({node, ...props}) => <td className="border border-slate-300 px-3 py-2" {...props} />,
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
                         {message.metadata && (
                           <p className="text-xs mt-2 opacity-70">
                             {message.metadata.execution_time_ms}ms
@@ -641,40 +697,301 @@ export default function AgentDetail() {
                               ` • DataHub context (${message.metadata.datasets_found} datasets)`}
                           </p>
                         )}
+                        {/* Show actual data used from tool calls - Minimal Modern Design */}
+                        {message.metadata?.tool_calls && message.metadata.tool_calls.length > 0 && (() => {
+                          // Find tool calls that have data results
+                          const dataToolCalls = message.metadata.tool_calls.filter(tc => 
+                            tc.tool === 'query_local_collections' && 
+                            tc.status === 'success' && 
+                            tc.result?.collections
+                          );
+                          
+                          if (dataToolCalls.length === 0) return null;
+                          
+                          // Helper function to extract key fields from a record
+                          const extractRecordFields = (record) => {
+                            const recordData = record.record || record.raw_record || record.raw_data || {};
+                            const fields = {};
+                            
+                            if (recordData.transaction_id || recordData.id) {
+                              fields.id = recordData.transaction_id || recordData.id;
+                            }
+                            if (recordData.customer || recordData.customer_name || recordData.name) {
+                              fields.customer = recordData.customer || recordData.customer_name || recordData.name;
+                            }
+                            if (recordData.amount || recordData.price || recordData.total) {
+                              fields.amount = recordData.amount || recordData.price || recordData.total;
+                            }
+                            if (recordData.timestamp || recordData.date || recordData.created_at) {
+                              fields.timestamp = recordData.timestamp || recordData.date || recordData.created_at;
+                            }
+                            if (recordData.items || recordData.products || recordData.sku) {
+                              fields.items = recordData.items || recordData.products || (recordData.sku ? [{sku: recordData.sku}] : []);
+                            }
+                            
+                            return { fields, rawRecord: record };
+                          };
+                          
+                          // Aggregate all collections from all tool calls
+                          const allCollections = {};
+                          let totalRecords = 0;
+                          
+                          dataToolCalls.forEach(toolCall => {
+                            const collections = toolCall.result.collections;
+                            Object.entries(collections).forEach(([key, data]) => {
+                              if (!allCollections[key]) {
+                                allCollections[key] = {
+                                  source: data.source,
+                                  entity_type: data.entity_type,
+                                  record_count: data.record_count,
+                                  records: []
+                                };
+                              }
+                              if (data.records) {
+                                allCollections[key].records.push(...data.records);
+                              }
+                              totalRecords += data.record_count || 0;
+                            });
+                          });
+                          
+                          const collectionCount = Object.keys(allCollections).length;
+                          
+                          return (
+                            <div className="mt-2">
+                              <details className="group">
+                                <summary className="flex items-center gap-2 cursor-pointer text-slate-600 hover:text-slate-900 text-xs py-1.5 px-2 rounded hover:bg-slate-50 transition-colors">
+                                  <IconDatabase size={14} className="text-slate-400" />
+                                  <span className="font-medium">Data Used</span>
+                                  <span className="text-slate-400">•</span>
+                                  <span className="text-slate-500">{totalRecords} record{totalRecords !== 1 ? 's' : ''}</span>
+                                  {collectionCount > 1 && <span className="text-slate-400">• {collectionCount} collections</span>}
+                                  <IconChevronDown size={12} className="ml-auto text-slate-400 group-open:hidden" />
+                                  <IconChevronUp size={12} className="ml-auto text-slate-400 hidden group-open:block" />
+                                </summary>
+                                <div className="mt-2 space-y-2">
+                                  {Object.entries(allCollections).map(([collectionKey, collectionData]) => (
+                                    <div key={collectionKey} className="bg-slate-50/50 rounded border border-slate-200 overflow-hidden">
+                                      {/* Compact Collection Header */}
+                                      <div className="px-2.5 py-1.5 border-b border-slate-200 bg-white/50">
+                                        <div className="flex items-center justify-between text-xs">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium text-slate-700">{collectionData.source}</span>
+                                            <span className="text-slate-400">/</span>
+                                            <span className="text-slate-600">{collectionData.entity_type.replace(/_/g, ' ')}</span>
+                                          </div>
+                                          <span className="text-slate-500">{collectionData.record_count} records</span>
+                                        </div>
+                                      </div>
+                                      
+                                      {/* Compact Records List */}
+                                      <div className="divide-y divide-slate-200">
+                                        {collectionData.records && collectionData.records.length > 0 ? (
+                                          collectionData.records.map((record, recordIndex) => {
+                                            const { fields, rawRecord } = extractRecordFields(record);
+                                            const hasKeyFields = Object.keys(fields).length > 0;
+                                            
+                                            return (
+                                              <details key={recordIndex} className="group/record">
+                                                <summary className="cursor-pointer px-2.5 py-2 hover:bg-slate-50/50 transition-colors">
+                                                  <div className="flex items-center gap-3 text-xs">
+                                                    {hasKeyFields ? (
+                                                      <>
+                                                        {fields.id && (
+                                                          <span className="font-mono text-slate-500">{fields.id}</span>
+                                                        )}
+                                                        {fields.customer && (
+                                                          <div className="flex items-center gap-1">
+                                                            <IconUser size={12} className="text-slate-400" />
+                                                            <span className="text-slate-700 font-medium">{fields.customer}</span>
+                                                          </div>
+                                                        )}
+                                                        {fields.amount !== undefined && (
+                                                          <div className="flex items-center gap-1">
+                                                            <IconCurrencyDollar size={12} className="text-emerald-500" />
+                                                            <span className="text-emerald-700 font-medium">
+                                                              ${typeof fields.amount === 'number' ? fields.amount.toLocaleString() : fields.amount}
+                                                            </span>
+                                                          </div>
+                                                        )}
+                                                        {fields.timestamp && (
+                                                          <div className="flex items-center gap-1 text-slate-500">
+                                                            <IconCalendar size={11} className="text-slate-400" />
+                                                            <span>{new Date(fields.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                          </div>
+                                                        )}
+                                                        {fields.items && fields.items.length > 0 && (
+                                                          <div className="flex items-center gap-1 text-slate-500">
+                                                            <IconShoppingCart size={11} className="text-slate-400" />
+                                                            <span>{fields.items.length} item{fields.items.length !== 1 ? 's' : ''}</span>
+                                                          </div>
+                                                        )}
+                                                      </>
+                                                    ) : (
+                                                      <span className="text-slate-600">Record {recordIndex + 1}</span>
+                                                    )}
+                                                    <IconChevronDown size={12} className="ml-auto text-slate-400 group-open/record:hidden" />
+                                                    <IconChevronUp size={12} className="ml-auto text-slate-400 hidden group-open/record:block" />
+                                                  </div>
+                                                </summary>
+                                                
+                                                {/* Minimal Full Record Data */}
+                                                <div className="px-2.5 py-2 bg-white border-t border-slate-100">
+                                                  <pre className="text-[10px] text-slate-600 whitespace-pre-wrap overflow-x-auto font-mono leading-relaxed">
+                                                    {JSON.stringify(rawRecord, null, 2)}
+                                                  </pre>
+                                                </div>
+                                              </details>
+                                            );
+                                          })
+                                        ) : (
+                                          <div className="px-2.5 py-3 text-center text-xs text-slate-400">
+                                            No records available
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            </div>
+                          );
+                        })()}
+                        {/* Only show DataHub Context section if there are actual datasets */}
                         {message.context && (
-                          <div className="mt-2 text-xs">
-                            <details className="cursor-pointer">
-                              <summary className="text-purple-700 hover:text-purple-900">
-                                View DataHub Context ({message.context.keywords?.join(', ')})
-                              </summary>
-                              <div className="mt-2 p-2 bg-white rounded border">
-                                {message.context.datasets?.length > 0 && (
-                                  <div className="mb-2">
-                                    <strong>Matching Datasets:</strong>
-                                    <ul className="list-disc list-inside ml-2">
-                                      {message.context.datasets.slice(0, 3).map((dataset, i) => (
-                                        <li key={i}>{dataset.name}</li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                                {message.context.domainDatasets?.length > 0 && (
-                                  <div className="mb-2">
-                                    <strong>Domain Datasets:</strong>
-                                    <ul className="list-disc list-inside ml-2">
-                                      {message.context.domainDatasets.slice(0, 3).map((dataset, i) => (
-                                        <li key={i}>{dataset.name}</li>
-                                      ))}
-                                    </ul>
-                                  </div>
-                                )}
-                              </div>
-                            </details>
-                          </div>
+                          (message.context.datasets?.length > 0 ||
+                           message.context.domainDatasets?.length > 0 ||
+                           message.context.taggedDatasets?.length > 0) && (
+                            <div className="mt-3">
+                              <details className="cursor-pointer">
+                                <summary className="text-purple-700 hover:text-purple-900 font-medium text-sm">
+                                  View DataHub Context ({message.context.keywords?.join(', ')})
+                                </summary>
+                                <div className="mt-3 p-3 bg-white rounded-lg border border-purple-200 space-y-4">
+                                  {/* Matching Datasets */}
+                                  {message.context.datasets?.length > 0 && (
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-purple-900 mb-2">Matching Datasets</h4>
+                                      <div className="space-y-2">
+                                        {message.context.datasets.map((dataset, i) => (
+                                          <div key={i} className="bg-slate-50 rounded-lg p-3 border border-purple-100">
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1">
+                                                <h5 className="font-medium text-slate-900 text-sm">{dataset.name}</h5>
+                                                {dataset.description && (
+                                                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{dataset.description}</p>
+                                                )}
+                                                <div className="flex flex-wrap items-center gap-2 mt-2">
+                                                  {dataset.platform && (
+                                                    <Badge variant="outline" className="text-xs border-blue-300 text-blue-700">
+                                                      <IconBuilding size={10} className="mr-1" />
+                                                      {dataset.platform}
+                                                    </Badge>
+                                                  )}
+                                                  {dataset.tags && dataset.tags.length > 0 && (
+                                                    dataset.tags.slice(0, 3).map((tag, j) => (
+                                                      <Badge key={j} variant="outline" className="text-xs border-red-300 text-red-700">
+                                                        <IconShield size={10} className="mr-1" />
+                                                        {tag}
+                                                      </Badge>
+                                                    ))
+                                                  )}
+                                                </div>
+                                              </div>
+                                              {dataset.urn && (
+                                                <IconExternalLink size={14} className="text-purple-600 cursor-pointer hover:text-purple-800 ml-2 flex-shrink-0" />
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Domain Datasets */}
+                                  {message.context.domainDatasets?.length > 0 && (
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-purple-900 mb-2">Domain-Specific Datasets</h4>
+                                      <div className="space-y-2">
+                                        {message.context.domainDatasets.map((dataset, i) => (
+                                          <div key={i} className="bg-slate-50 rounded-lg p-3 border border-purple-100">
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1">
+                                                <h5 className="font-medium text-slate-900 text-sm">{dataset.name}</h5>
+                                                {dataset.description && (
+                                                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{dataset.description}</p>
+                                                )}
+                                                <div className="flex flex-wrap items-center gap-2 mt-2">
+                                                  {dataset.domain && (
+                                                    <Badge variant="outline" className="text-xs border-orange-300 text-orange-700">
+                                                      <IconTag size={10} className="mr-1" />
+                                                      {dataset.domain}
+                                                    </Badge>
+                                                  )}
+                                                  {dataset.platform && (
+                                                    <Badge variant="outline" className="text-xs border-blue-300 text-blue-700">
+                                                      <IconBuilding size={10} className="mr-1" />
+                                                      {dataset.platform}
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              {dataset.urn && (
+                                                <IconExternalLink size={14} className="text-purple-600 cursor-pointer hover:text-purple-800 ml-2 flex-shrink-0" />
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Tagged Datasets */}
+                                  {message.context.taggedDatasets?.length > 0 && (
+                                    <div>
+                                      <h4 className="text-sm font-semibold text-purple-900 mb-2">Tagged Datasets</h4>
+                                      <div className="space-y-2">
+                                        {message.context.taggedDatasets.map((dataset, i) => (
+                                          <div key={i} className="bg-slate-50 rounded-lg p-3 border border-purple-100">
+                                            <div className="flex items-start justify-between">
+                                              <div className="flex-1">
+                                                <h5 className="font-medium text-slate-900 text-sm">{dataset.name}</h5>
+                                                {dataset.description && (
+                                                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{dataset.description}</p>
+                                                )}
+                                                <div className="flex flex-wrap items-center gap-2 mt-2">
+                                                  {dataset.tags && dataset.tags.length > 0 && (
+                                                    dataset.tags.slice(0, 5).map((tag, j) => (
+                                                      <Badge key={j} variant="outline" className="text-xs border-red-300 text-red-700">
+                                                        <IconShield size={10} className="mr-1" />
+                                                        {tag}
+                                                      </Badge>
+                                                    ))
+                                                  )}
+                                                  {dataset.platform && (
+                                                    <Badge variant="outline" className="text-xs border-blue-300 text-blue-700">
+                                                      <IconBuilding size={10} className="mr-1" />
+                                                      {dataset.platform}
+                                                    </Badge>
+                                                  )}
+                                                </div>
+                                              </div>
+                                              {dataset.urn && (
+                                                <IconExternalLink size={14} className="text-purple-600 cursor-pointer hover:text-purple-800 ml-2 flex-shrink-0" />
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </details>
+                            </div>
+                          )
                         )}
                       </div>
                       {message.role === 'user' && (
-                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 mt-1">
                           <span className="text-xs font-semibold text-slate-700">U</span>
                         </div>
                       )}
@@ -709,36 +1026,10 @@ export default function AgentDetail() {
                 )}
               </div>
 
-              {/* DataHub Context Toggle */}
-              <div className="flex items-center justify-between py-3 border-t border-slate-200">
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={useDataHubContext}
-                      onChange={(e) => setUseDataHubContext(e.target.checked)}
-                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                    />
-                    <div className="flex items-center gap-2 text-sm">
-                      <IconDatabase size={16} className="text-purple-600" />
-                      <span className="text-slate-700">Use DataHub Context</span>
-                    </div>
-                  </label>
-                  <Badge variant="outline" className="text-xs">
-                    Port 9002
-                  </Badge>
-                </div>
-                {datahubContext && datahubContext.hasContext && (
-                  <div className="text-xs text-slate-500">
-                    {datahubContext.summary}
-                  </div>
-                )}
-              </div>
-
               {/* Input */}
               <div className="flex gap-2 pt-2">
                 <Input
-                  placeholder={`Type your message...${useDataHubContext ? ' (DataHub context will be included)' : ''}`}
+                  placeholder="Type your message..."
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {

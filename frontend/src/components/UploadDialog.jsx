@@ -215,12 +215,12 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
         setJobStatus(status)
         setUploadProgress(status.progress || 0)
 
-        if (status.status === 'completed') {
+        if (status.status === 'ingested' || status.status === 'completed') {
           setIsUploading(false)
           toast({
             variant: 'default',
-            title: 'Upload Complete!',
-            description: `${status.files_processed} files processed, ${status.records_enriched} records enriched.`,
+            title: 'Ingestion Complete!',
+            description: `${status.files_processed} files processed, ${status.records_ingested} records ingested. Data is ready for enrichment in Metadata Manager.`,
           })
           
           // Reset form
@@ -452,7 +452,9 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
                   <div className="text-xs text-blue-700 space-y-1">
                     <p>Files processed: {jobStatus.files_processed} / {jobStatus.total_files}</p>
                     <p>Records ingested: {jobStatus.records_ingested}</p>
-                    <p>Records enriched: {jobStatus.records_enriched}</p>
+                    {jobStatus.status === 'ingested' && (
+                      <p className="text-amber-700 font-medium">Ready for enrichment in Metadata Manager</p>
+                    )}
                   </div>
                 )}
               </div>

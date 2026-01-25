@@ -20,6 +20,7 @@ import {
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
 import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
 import {
   Dialog,
   DialogContent,
@@ -84,6 +85,9 @@ export default function MetadataManager() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedSource, setSelectedSource] = useState(null)
   const [processingStats, setProcessingStats] = useState(null)
+  const [ingestionJobs, setIngestionJobs] = useState([])
+  const [enrichedDatasets, setEnrichedDatasets] = useState([])
+  const [activeTab, setActiveTab] = useState('queue') // 'queue', 'enriched', or 'sources'
   const { toast } = useToast()
 
   // New source form state
@@ -143,7 +147,163 @@ export default function MetadataManager() {
     }
   }, [sources])
 
-  // Handle ingestion and enrichment workflow
+  // Fetch ingestion jobs ready for enrichment
+  const fetchIngestionQueue = async () => {
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+      const response = await fetch(`${apiBase}/enrichment/queue`)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch ingestion queue: ${response.status}`)
+      }
+
+      const data = await response.json()
+      setIngestionJobs(data.jobs || [])
+    } catch (error) {
+      console.error('Error fetching ingestion queue:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Failed to Load Queue',
+        description: 'Could not fetch ingestion jobs. Please try again later.',
+      })
+    }
+  }
+
+  // Fetch enriched datasets from database
+  const fetchEnrichedDatasets = async () => {
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+      const response = await fetch(`${apiBase}/enriched?limit=1000`)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch enriched datasets: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      // Group by source_system and entity_type
+      const grouped = {}
+      data.records.forEach(record => {
+        const key = `${record.source_system}_${record.entity_type}`
+        if (!grouped[key]) {
+          grouped[key] = {
+            name: `${record.source_system} - ${record.entity_type}`,
+            source_system: record.source_system,
+            entity_type: record.entity_type,
+            records: 0,
+            description: record.enriched_metadata?.description || 'No description',
+            tags: record.enriched_metadata?.tags || [],
+            confidence: record.enriched_metadata?.confidence || 0,
+            lastEnriched: record.enrichment_timestamp
+          }
+        }
+        grouped[key].records++
+      })
+      
+      setEnrichedDatasets(Object.values(grouped))
+    } catch (error) {
+      console.error('Error fetching enriched datasets:', error)
+    }
+  }
+
+  // Handle enrichment for ingestion job
+  const handleEnrichJob = async (ingestionJobId) => {
+    setIsProcessing(true)
+    setProcessingStats(null)
+
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+
+      toast({
+        title: 'Starting Enrichment',
+        description: `Enriching ingested data with AI...`,
+      })
+
+      const formData = new FormData()
+      formData.append('ingestion_job_id', ingestionJobId)
+
+      const enrichResponse = await fetch(`${apiBase}/enrichment/process`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!enrichResponse.ok) {
+        const errorData = await enrichResponse.json().catch(() => ({ detail: 'Unknown error' }))
+        throw new Error(errorData.detail || `Enrichment failed: ${enrichResponse.status}`)
+      }
+
+      const enrichData = await enrichResponse.json()
+
+      // Poll for enrichment status
+      let attempts = 0
+      const maxAttempts = 300 // 10 minutes
+      
+      const pollEnrichmentStatus = async () => {
+        if (attempts >= maxAttempts) {
+          toast({
+            variant: 'destructive',
+            title: 'Enrichment Timeout',
+            description: 'Enrichment is taking longer than expected. Please check back later.',
+          })
+          setIsProcessing(false)
+          return
+        }
+
+        try {
+          const statusResponse = await fetch(`${apiBase}/enrichment/status/${ingestionJobId}`)
+          if (statusResponse.ok) {
+            const status = await statusResponse.json()
+            
+            if (status.enrichment_status === 'completed') {
+              setIsProcessing(false)
+              setProcessingStats({
+                ingested: status.records_ingested,
+                enriched: status.records_enriched,
+                failed: 0,
+              })
+              
+              toast({
+                variant: 'default',
+                title: 'Enrichment Complete!',
+                description: `Successfully enriched ${status.records_enriched} records.`,
+              })
+              
+              // Refresh data
+              fetchIngestionQueue()
+              fetchEnrichedDatasets()
+              return
+            } else if (status.enrichment_status === 'failed') {
+              setIsProcessing(false)
+              toast({
+                variant: 'destructive',
+                title: 'Enrichment Failed',
+                description: 'An error occurred during enrichment.',
+              })
+              return
+            }
+          }
+        } catch (error) {
+          console.error('Error polling enrichment status:', error)
+        }
+
+        attempts++
+        setTimeout(pollEnrichmentStatus, 2000)
+      }
+
+      pollEnrichmentStatus()
+
+    } catch (error) {
+      console.error('Error enriching job:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Enrichment Failed',
+        description: error.message || 'Failed to start enrichment. Please try again.',
+      })
+      setIsProcessing(false)
+    }
+  }
+
+  // Handle ingestion and enrichment workflow (legacy - for configured sources)
   const handleProcessSource = async (source) => {
     setIsProcessing(true)
     setSelectedSource(source)
@@ -250,6 +410,23 @@ export default function MetadataManager() {
       setIsProcessing(false)
     }
   }
+
+  // Fetch data on mount
+  useEffect(() => {
+    fetchIngestionQueue()
+    fetchEnrichedDatasets()
+    
+    // Refresh every 5 seconds when on enriched tab
+    const interval = setInterval(() => {
+      if (activeTab === 'enriched') {
+        fetchEnrichedDatasets()
+      } else {
+        fetchIngestionQueue()
+      }
+    }, 5000)
+    
+    return () => clearInterval(interval)
+  }, [activeTab])
 
   // Handle process all sources
   const handleProcessAll = async () => {
@@ -511,6 +688,198 @@ export default function MetadataManager() {
           </div>
         </div>
 
+        {/* Tabs */}
+        <div className="flex border-b border-slate-200 bg-white rounded-t-xl">
+          <button
+            onClick={() => setActiveTab('queue')}
+            className={cn(
+              'px-6 py-3 font-medium text-sm border-b-2 transition-colors',
+              activeTab === 'queue'
+                ? 'border-purple-600 text-purple-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            )}
+          >
+            Ingestion Queue
+          </button>
+          <button
+            onClick={() => setActiveTab('enriched')}
+            className={cn(
+              'px-6 py-3 font-medium text-sm border-b-2 transition-colors',
+              activeTab === 'enriched'
+                ? 'border-purple-600 text-purple-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            )}
+          >
+            Enriched Datasets
+          </button>
+          <button
+            onClick={() => setActiveTab('sources')}
+            className={cn(
+              'px-6 py-3 font-medium text-sm border-b-2 transition-colors',
+              activeTab === 'sources'
+                ? 'border-purple-600 text-purple-600'
+                : 'border-transparent text-slate-600 hover:text-slate-900'
+            )}
+          >
+            Configured Sources
+          </button>
+        </div>
+
+        {/* Ingestion Queue Tab */}
+        {activeTab === 'queue' && (
+          <div className="bg-white rounded-b-xl shadow-sm border border-slate-200 border-t-0 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-slate-900">Ingestion Jobs Ready for Enrichment</h2>
+              <Button
+                onClick={fetchIngestionQueue}
+                variant="outline"
+                size="sm"
+              >
+                <IconRefresh size={16} />
+                Refresh
+              </Button>
+            </div>
+            
+            {ingestionJobs.length > 0 ? (
+              <div className="space-y-4">
+                {ingestionJobs.map((job) => (
+                  <div
+                    key={job.job_id}
+                    className="p-4 border border-slate-200 rounded-lg hover:border-purple-300 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <IconDatabase size={20} className="text-purple-600" />
+                          <h3 className="font-semibold text-slate-900">Job {job.job_id.substring(0, 8)}...</h3>
+                          <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+                            Ready for Enrichment
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 mt-3 text-sm">
+                          <div>
+                            <p className="text-slate-500">Files Processed</p>
+                            <p className="font-semibold text-slate-900">{job.files_processed}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Records Ingested</p>
+                            <p className="font-semibold text-slate-900">{job.records_ingested.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Created</p>
+                            <p className="font-semibold text-slate-900">
+                              {job.created_at ? new Date(job.created_at).toLocaleString() : 'Unknown'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => handleEnrichJob(job.job_id)}
+                        disabled={isProcessing}
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        <IconPlayerPlay size={16} className="mr-2" />
+                        Enrich
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <IconDatabase size={48} className="text-slate-300 mx-auto mb-4" />
+                <p className="text-lg font-semibold text-slate-900 mb-2">No Jobs Ready for Enrichment</p>
+                <p className="text-slate-600">
+                  Upload data in the Datasets page to create ingestion jobs
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Enriched Datasets Tab */}
+        {activeTab === 'enriched' && (
+          <div className="bg-white rounded-b-xl shadow-sm border border-slate-200 border-t-0 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-slate-900">Enriched Datasets</h2>
+              <Button
+                onClick={fetchEnrichedDatasets}
+                variant="outline"
+                size="sm"
+              >
+                <IconRefresh size={16} />
+                Refresh
+              </Button>
+            </div>
+            
+            {enrichedDatasets.length > 0 ? (
+              <div className="space-y-4">
+                {enrichedDatasets.map((dataset) => (
+                  <div
+                    key={dataset.name}
+                    className="p-4 border border-slate-200 rounded-lg hover:border-emerald-300 transition-colors"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <IconDatabase size={20} className="text-emerald-600" />
+                          <h3 className="font-semibold text-slate-900">{dataset.name}</h3>
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                            Enriched
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-slate-600 mb-3">{dataset.description}</p>
+                        <div className="grid grid-cols-4 gap-4 text-sm">
+                          <div>
+                            <p className="text-slate-500">Records</p>
+                            <p className="font-semibold text-slate-900">{dataset.records.toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Confidence</p>
+                            <p className="font-semibold text-slate-900">
+                              {(dataset.confidence * 100).toFixed(1)}%
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Tags</p>
+                            <p className="font-semibold text-slate-900">{dataset.tags.length}</p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500">Last Enriched</p>
+                            <p className="font-semibold text-slate-900">
+                              {dataset.lastEnriched ? new Date(dataset.lastEnriched).toLocaleDateString() : 'Unknown'}
+                            </p>
+                          </div>
+                        </div>
+                        {dataset.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-3">
+                            {dataset.tags.map((tag, idx) => (
+                              <Badge key={idx} variant="outline" className="text-xs">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <IconDatabase size={48} className="text-slate-300 mx-auto mb-4" />
+                <p className="text-lg font-semibold text-slate-900 mb-2">No Enriched Datasets</p>
+                <p className="text-slate-600">
+                  Enrich ingested data to see results here
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Configured Sources Tab */}
+        {activeTab === 'sources' && (
+          <>
         {/* Search and Filters */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
           <div className="flex flex-col lg:flex-row gap-4">
@@ -569,26 +938,28 @@ export default function MetadataManager() {
           </div>
         </div>
 
-        {/* Sources Table */}
-        {filteredSources.length > 0 ? (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <DataTable columns={columns} data={filteredSources} />
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl p-16 text-center border border-slate-200">
-            <IconDatabase size={48} className="text-slate-300 mx-auto mb-4" />
-            <p className="text-lg font-semibold text-slate-900 mb-2">No sources configured</p>
-            <p className="text-slate-600 mb-6">
-              Add your first data source to start ingesting and enriching metadata
-            </p>
-            <Button
-              onClick={() => setIsConfigDialogOpen(true)}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              <IconSettings size={18} />
-              Add Source
-            </Button>
-          </div>
+            {/* Sources Table */}
+            {filteredSources.length > 0 ? (
+              <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <DataTable columns={columns} data={filteredSources} />
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl p-16 text-center border border-slate-200">
+                <IconDatabase size={48} className="text-slate-300 mx-auto mb-4" />
+                <p className="text-lg font-semibold text-slate-900 mb-2">No sources configured</p>
+                <p className="text-slate-600 mb-6">
+                  Add your first data source to start ingesting and enriching metadata
+                </p>
+                <Button
+                  onClick={() => setIsConfigDialogOpen(true)}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <IconSettings size={18} />
+                  Add Source
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
         {/* Processing Stats */}
