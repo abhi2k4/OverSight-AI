@@ -101,3 +101,26 @@ class EnrichedRecordRepository:
     def get_all_records(self) -> List[EnrichedRecord]:
         """Get all enriched records (for analytics)."""
         return self.db.query(EnrichedRecord).all()
+    
+    def delete_by_source_and_entity(
+        self,
+        source_system: str,
+        entity_type: str
+    ) -> int:
+        """
+        Delete all records matching source_system and entity_type.
+        
+        Returns:
+            Number of records deleted
+        """
+        records = self.db.query(EnrichedRecord).filter(
+            EnrichedRecord.source_system == source_system,
+            EnrichedRecord.entity_type == entity_type
+        ).all()
+        
+        count = len(records)
+        for record in records:
+            self.db.delete(record)
+        
+        self.db.commit()
+        return count

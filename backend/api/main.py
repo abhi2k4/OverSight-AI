@@ -5,11 +5,15 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File, BackgroundTasks, Form
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
+import uuid
+from pathlib import Path
+import shutil
+import asyncio
 
 from backend.api.config import settings, TAXONOMY
 from backend.api.constants import (
@@ -45,11 +49,17 @@ from backend.datahub.tag_initializer import TagInitializer
 from backend.datahub.domain_initializer import DomainInitializer
 from backend.api.agent_routes import router as agent_router
 from backend.api.websocket_routes import router as websocket_router
+from backend.ingestion.pipeline import IngestionPipeline
+from backend.ingestion.enrichment_bridge import EnrichmentBridge
+from backend.ingestion.factory import SourceFactory
 
 from dotenv import load_dotenv
 import json
 import re
 load_dotenv()
+
+# Job status storage (in-memory, could be replaced with Redis)
+job_statuses: Dict[str, Dict[str, Any]] = {}
 
 app = FastAPI(
     title=settings.app_name,
@@ -79,6 +89,10 @@ async def startup_event():
     print(f"✅ {settings.app_name} started successfully")
     print(f"📊 Database: {settings.database_url}")
     print(f"🤖 Model: {settings.gemini_model}")
+    # Log registered routes for debugging
+    print(f"📋 Registered ingestion routes:")
+    print(f"   POST {settings.api_prefix}/ingest/upload")
+    print(f"   GET {settings.api_prefix}/ingest/status/{{job_id}}")
 
 
 @app.get("/")
@@ -509,6 +523,242 @@ Return ONLY valid JSON, no markdown formatting, no code blocks."""
         raise HTTPException(
             status_code=HTTP_500_INTERNAL_ERROR,
             detail=f"Dataset registration failed: {str(e)}"
+        )
+
+
+# ============================================================================
+# Ingestion & Enrichment Endpoints
+# ============================================================================
+
+async def run_ingestion_async(pipeline: IngestionPipeline):
+    """Async wrapper for IngestionPipeline.run()"""
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(None, pipeline.run)
+
+
+async def run_enrichment_async(bridge: EnrichmentBridge, batch_size: int = 10):
+    """Async wrapper for EnrichmentBridge.process_all()"""
+    return await bridge.process_all(batch_size=batch_size)
+
+
+async def process_ingestion_job(job_id: str, file_paths: List[Dict[str, str]]):
+    """Process ingestion and enrichment for uploaded files"""
+    try:
+        job_statuses[job_id]["status"] = "processing"
+        job_statuses[job_id]["files_processed"] = 0
+        job_statuses[job_id]["records_ingested"] = 0
+        job_statuses[job_id]["records_enriched"] = 0
+        job_statuses[job_id]["errors"] = []
+        
+        # Create sources from uploaded files
+        sources = []
+        for file_info in file_paths:
+            file_path = file_info["path"]
+            file_type = file_info["type"]
+            entity_type = file_info.get("entity_type", Path(file_path).stem)
+            
+            try:
+                config = {"file_path": file_path}
+                if entity_type:
+                    config["entity_type"] = entity_type
+                
+                source = SourceFactory.create(file_type, config)
+                sources.append(source)
+            except Exception as e:
+                error_msg = f"Error creating source for {file_path}: {str(e)}"
+                job_statuses[job_id]["errors"].append(error_msg)
+                continue
+        
+        if not sources:
+            job_statuses[job_id]["status"] = "failed"
+            job_statuses[job_id]["error"] = "No valid sources created"
+            return
+        
+        # Run ingestion pipeline
+        upload_dir = Path("data/uploads") / job_id
+        output_dir = upload_dir / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        pipeline = IngestionPipeline(sources, output_dir=str(output_dir))
+        await run_ingestion_async(pipeline)
+        
+        # Count records from output JSONL files
+        jsonl_files = list(Path(output_dir).rglob("data.jsonl"))
+        total_records = 0
+        for jsonl_file in jsonl_files:
+            try:
+                with open(jsonl_file, 'r', encoding='utf-8') as f:
+                    total_records += sum(1 for line in f if line.strip())
+            except Exception:
+                pass
+        
+        job_statuses[job_id]["files_processed"] = len(sources)
+        job_statuses[job_id]["records_ingested"] = total_records
+        
+        # Run enrichment bridge (following test script pattern)
+        print(f"[Job {job_id}] Starting enrichment bridge...")
+        bridge = EnrichmentBridge(output_dir=str(output_dir))
+        try:
+            stats = await run_enrichment_async(bridge, batch_size=10)
+            
+            job_statuses[job_id]["records_enriched"] = stats.get("enriched", 0)
+            job_statuses[job_id]["status"] = "completed"
+            job_statuses[job_id]["progress"] = 100
+            job_statuses[job_id]["enrichment_stats"] = stats
+            
+            print(f"[Job {job_id}] Enrichment complete: {stats}")
+        finally:
+            bridge.close()
+        
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[Job {job_id}] Error: {str(e)}\n{error_trace}")
+        job_statuses[job_id]["status"] = "failed"
+        job_statuses[job_id]["error"] = str(e)
+        job_statuses[job_id]["errors"].append(str(e))
+
+
+@app.post(f"{settings.api_prefix}/ingest/upload")
+async def upload_files(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    entity_types: Optional[str] = Form(None)
+):
+    """
+    Upload files for ingestion and enrichment
+    
+    Accepts multiple files (CSV, JSON, SQLite) and starts processing
+    Follows the same workflow as tests/run_ingestion_with_enrichment.py:
+    1. Create sources using SourceFactory
+    2. Run IngestionPipeline
+    3. Run EnrichmentBridge.process_all()
+    """
+    if not files:
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="No files provided")
+    
+    # Generate job ID
+    job_id = str(uuid.uuid4())
+    
+    # Create upload directory
+    upload_dir = Path("data/uploads") / job_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Parse entity types if provided (comma-separated)
+    entity_type_list = entity_types.split(",") if entity_types else []
+    
+    # Save files and detect types
+    file_paths = []
+    valid_extensions = {".csv", ".json", ".db", ".sqlite", ".sqlite3"}
+    
+    for idx, file in enumerate(files):
+        # Validate file extension
+        file_ext = Path(file.filename).suffix.lower()
+        if file_ext not in valid_extensions:
+            raise HTTPException(
+                status_code=HTTP_400_BAD_REQUEST,
+                detail=f"Invalid file type: {file.filename}. Supported: CSV, JSON, SQLite"
+            )
+        
+        # Determine file type
+        if file_ext == ".csv":
+            file_type = "csv"
+        elif file_ext in {".json"}:
+            file_type = "json"
+        elif file_ext in {".db", ".sqlite", ".sqlite3"}:
+            file_type = "sqlite"
+        else:
+            file_type = "csv"  # default
+        
+        # Get entity type (from form or filename)
+        entity_type = entity_type_list[idx] if idx < len(entity_type_list) else Path(file.filename).stem
+        
+        # Save file
+        file_path = upload_dir / file.filename
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        file_paths.append({
+            "path": str(file_path),
+            "type": file_type,
+            "entity_type": entity_type,
+            "filename": file.filename
+        })
+    
+    # Initialize job status
+    job_statuses[job_id] = {
+        "job_id": job_id,
+        "status": "queued",
+        "progress": 0,
+        "files_processed": 0,
+        "total_files": len(files),
+        "records_ingested": 0,
+        "records_enriched": 0,
+        "errors": [],
+        "file_paths": file_paths
+    }
+    
+    # Start background processing
+    background_tasks.add_task(process_ingestion_job, job_id, file_paths)
+    
+    return {
+        "job_id": job_id,
+        "files_received": len(files),
+        "status": "queued",
+        "message": "Files uploaded, processing started"
+    }
+
+
+@app.get(f"{settings.api_prefix}/ingest/status/{{job_id}}")
+async def get_ingestion_status(job_id: str):
+    """Get status of an ingestion job"""
+    if job_id not in job_statuses:
+        raise HTTPException(
+            status_code=HTTP_404_NOT_FOUND,
+            detail=f"Job {job_id} not found"
+        )
+    
+    status = job_statuses[job_id]
+    
+    # Calculate progress
+    if status["status"] == "completed":
+        progress = 100
+    elif status["status"] == "failed":
+        progress = 0
+    elif status["status"] == "processing":
+        # Estimate progress based on files processed
+        if status["total_files"] > 0:
+            progress = min(90, int((status["files_processed"] / status["total_files"]) * 90))
+        else:
+            progress = 50
+    else:
+        progress = 0
+    
+    status["progress"] = progress
+    
+    return status
+
+
+@app.delete(f"{settings.api_prefix}/enriched")
+async def delete_collection(
+    source_system: str,
+    entity_type: str,
+    db: Session = Depends(get_db)
+):
+    """Delete all records for a specific collection (source_system + entity_type)"""
+    try:
+        repository = get_enriched_record_repository(db)
+        deleted_count = repository.delete_by_source_and_entity(source_system, entity_type)
+        
+        return {
+            "success": True,
+            "message": f"Deleted {deleted_count} records",
+            "deleted_count": deleted_count
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_ERROR,
+            detail=f"Failed to delete collection: {str(e)}"
         )
 
 

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import multer from 'multer';
 import fs from 'fs';
+import { createProxyMiddleware } from 'http-proxy-middleware';
 import { createAgent, queryAgent, getAgent, listAgents, deleteAgent, getConversationHistory, storeAgentMetadata, getAgentMetadata, recreateAgentFromMetadata } from './agentManager.js';
 
 // Load environment variables
@@ -62,6 +63,105 @@ initializeClients();
 
 // Middleware
 app.use(cors());
+
+// Python Backend Proxy Configuration
+// Use 127.0.0.1 instead of localhost to avoid IPv6 issues
+const PYTHON_API_URL = process.env.PYTHON_API_URL || 'http://127.0.0.1:8000';
+
+// List of routes handled by Express (don't proxy these)
+const expressRoutes = [
+  '/health',
+  '/chat',
+  '/agents',
+  '/metrics',
+  '/datasets/register', // Express version
+  '/policies',
+];
+
+// Create proxy middleware for Python backend
+// Note: Express receives paths WITHOUT /api prefix (Vite strips it)
+// So /api/ingest/upload becomes /ingest/upload in Express
+// We need to add /api back when proxying to Python backend
+const pythonBackendProxy = createProxyMiddleware({
+  target: PYTHON_API_URL,
+  changeOrigin: true,
+  // Add /api prefix back when proxying (Express path is /ingest/upload, Python needs /api/ingest/upload)
+  pathRewrite: (path) => {
+    // Express receives /ingest/upload, we need /api/ingest/upload for Python backend
+    // Simple: prepend /api if path doesn't already start with it
+    if (path.startsWith('/api')) {
+      return path; // Already has /api
+    }
+    return `/api${path}`; // Add /api prefix
+  },
+  logLevel: process.env.NODE_ENV === 'development' ? 'debug' : 'warn',
+  // Handle file uploads - http-proxy-middleware handles multipart/form-data automatically
+  onProxyReq: (proxyReq, req, res) => {
+    // Log proxied requests in development (path is already rewritten by pathRewrite)
+    if (process.env.NODE_ENV === 'development') {
+      const rewrittenPath = req.path.startsWith('/api') ? req.path : `/api${req.path}`;
+      console.log(`[Proxy] ${req.method} ${req.path} -> ${PYTHON_API_URL}${rewrittenPath}`);
+    }
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    // Log successful proxy responses in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Proxy] ${req.method} ${req.path} -> ${proxyRes.statusCode}`);
+    }
+  },
+  onError: (err, req, res) => {
+    console.error('[Proxy Error]', err.message);
+    if (!res.headersSent) {
+      res.status(503).json({
+        error: 'Backend service unavailable',
+        message: 'Python API server may not be running. Please ensure the backend is started on port 8000.',
+        details: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      });
+    }
+  },
+});
+
+// Catch-all proxy middleware (runs for ALL routes)
+// Vite strips /api prefix, so Express receives paths like /ingest/upload, /health, /chat, etc.
+// We check if it's an Express route, if not, proxy to Python backend
+app.use((req, res, next) => {
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[Express] ${req.method} ${req.path} - Checking route...`);
+  }
+  
+  // Check if this route is handled by Express
+  const isExpressRoute = expressRoutes.some(route => {
+    // Handle exact matches and path starts with
+    if (req.path === route || req.path.startsWith(route + '/')) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Express] Route matched: ${req.path} -> Express handler`);
+      }
+      return true;
+    }
+    // Special case for /agents/:id routes
+    if (route === '/agents' && req.path.startsWith('/agents/')) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`[Express] Route matched: ${req.path} -> Express handler`);
+      }
+      return true;
+    }
+    return false;
+  });
+  
+  if (isExpressRoute) {
+    // Let Express handle it - continue to next middleware
+    return next();
+  }
+  
+  // Not an Express route - proxy to Python backend
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[Proxy] Routing ${req.method} ${req.path} to Python backend`);
+  }
+  return pythonBackendProxy(req, res, next);
+});
+
+// JSON body parser (only for Express routes that need it)
 app.use(express.json());
 
 // Configure multer for file uploads

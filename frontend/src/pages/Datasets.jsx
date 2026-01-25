@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   IconDatabase,
   IconLock,
@@ -15,9 +16,11 @@ import {
   IconTrendingUp,
   IconShieldCheck,
   IconChevronDown,
+  IconTrash,
 } from '@tabler/icons-react'
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
+import UploadDialog from '../components/UploadDialog'
 import { Button } from '../components/ui/button'
 import {
   Dialog,
@@ -93,8 +96,10 @@ const defaultDatasets = [
 ]
 
 export default function Datasets() {
+  const navigate = useNavigate()
   const [datasets, setDatasets] = useState(defaultDatasets)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false) // Keep for old register dialog
   const [selectedFile, setSelectedFile] = useState(null)
   const [fileName, setFileName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -102,8 +107,76 @@ export default function Datasets() {
   const [sensitivityFilter, setSensitivityFilter] = useState('all')
   const [complianceFilter, setComplianceFilter] = useState('all')
   const [isDragging, setIsDragging] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [datasetToDelete, setDatasetToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
   const fileInputRef = useRef(null)
   const { toast } = useToast()
+
+  // Handle row click to navigate to detail page
+  const handleRowClick = (row) => {
+    if (row.id) {
+      navigate(`/datasets/${row.id}`)
+    }
+  }
+
+  // Handle delete button click
+  const handleDeleteClick = (e, row) => {
+    e.stopPropagation() // Prevent row click navigation
+    setDatasetToDelete(row)
+    setShowDeleteDialog(true)
+  }
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = async () => {
+    if (!datasetToDelete) return
+
+    setIsDeleting(true)
+    try {
+      // Check if it's an enriched dataset (has source_system and entity_type)
+      if (datasetToDelete.source_system && datasetToDelete.entity_type) {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+        const url = `${apiBase}/enriched?source_system=${encodeURIComponent(datasetToDelete.source_system)}&entity_type=${encodeURIComponent(datasetToDelete.entity_type)}`
+        
+        const response = await fetch(url, {
+          method: 'DELETE',
+        })
+
+        if (!response.ok) {
+          throw new Error(`Failed to delete collection: ${response.status}`)
+        }
+
+        // Remove from datasets list
+        setDatasets(prev => prev.filter(d => d.id !== datasetToDelete.id))
+        
+        toast({
+          variant: 'default',
+          title: 'Collection Deleted',
+          description: `Successfully deleted "${datasetToDelete.name}"`,
+        })
+      } else {
+        // For default/mock datasets, just remove from list
+        setDatasets(prev => prev.filter(d => d.id !== datasetToDelete.id))
+        
+        toast({
+          variant: 'default',
+          title: 'Dataset Removed',
+          description: `Removed "${datasetToDelete.name}" from list`,
+        })
+      }
+    } catch (error) {
+      console.error('Error deleting dataset:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Delete Failed',
+        description: error.message || 'Failed to delete dataset. Please try again.',
+      })
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteDialog(false)
+      setDatasetToDelete(null)
+    }
+  }
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -122,6 +195,110 @@ export default function Datasets() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets))
   }, [datasets])
+
+  // Fetch enriched records and transform to dataset format
+  const fetchEnrichedRecords = async () => {
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+      const response = await fetch(`${apiBase}/enriched?limit=1000`)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch enriched records: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const enrichedDatasets = transformEnrichedToDatasets(data.records)
+      
+      // Merge with existing datasets, avoiding duplicates
+      setDatasets(prev => {
+        const existingNames = new Set(prev.map(d => d.name))
+        const newDatasets = enrichedDatasets.filter(d => !existingNames.has(d.name))
+        return [...prev, ...newDatasets]
+      })
+    } catch (error) {
+      console.error('Error fetching enriched records:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Failed to Load Enriched Data',
+        description: 'Could not fetch enriched records. Please try again later.',
+      })
+    }
+  }
+
+  // Transform enriched records to dataset format
+  const transformEnrichedToDatasets = (enrichedRecords) => {
+    // Group by source_system and entity_type
+    const grouped = {}
+    
+    enrichedRecords.forEach(record => {
+      const key = `${record.source_system}_${record.entity_type}`
+      if (!grouped[key]) {
+        grouped[key] = {
+          name: `${record.source_system} - ${record.entity_type}`,
+          description: record.enriched_metadata?.description || 'No description available',
+          type: 'Structured',
+          sensitivity: deriveSensitivity(record.enriched_metadata?.tags || []),
+          records: 0,
+          size: 'N/A',
+          lastAccessed: formatTimestamp(record.enrichment_timestamp),
+          status: 'active',
+          compliance: extractCompliance(record.enriched_metadata?.tags || []),
+          id: key, // Use composite key as ID
+          source_system: record.source_system,
+          entity_type: record.entity_type,
+        }
+      }
+      grouped[key].records++
+    })
+
+    return Object.values(grouped)
+  }
+
+  // Derive sensitivity from tags
+  const deriveSensitivity = (tags) => {
+    const tagStr = tags.join(' ').toLowerCase()
+    if (tagStr.includes('pii') || tagStr.includes('critical') || tagStr.includes('sensitive')) {
+      return 'Critical'
+    }
+    if (tagStr.includes('personal') || tagStr.includes('private')) {
+      return 'High'
+    }
+    if (tagStr.includes('internal') || tagStr.includes('confidential')) {
+      return 'Medium'
+    }
+    return 'Low'
+  }
+
+  // Extract compliance frameworks from tags
+  const extractCompliance = (tags) => {
+    const complianceFrameworks = ['GDPR', 'HIPAA', 'CCPA', 'PCI-DSS', 'SOC2']
+    return tags.filter(tag => complianceFrameworks.includes(tag))
+  }
+
+  // Format timestamp to relative time
+  const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'Unknown'
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diffMs = now - date
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
+
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+    return date.toLocaleDateString()
+  }
+
+  // Handle upload completion
+  const handleUploadComplete = () => {
+    // Fetch enriched records after upload completes
+    setTimeout(() => {
+      fetchEnrichedRecords()
+    }, 1000) // Small delay to ensure backend has processed
+  }
 
   // Filter datasets based on search and filters
   const filteredDatasets = useMemo(() => {
@@ -150,15 +327,43 @@ export default function Datasets() {
     ).length
     const totalRecords = datasets.reduce((sum, d) => sum + d.records, 0)
     const totalSize = datasets.reduce((sum, d) => {
+      // Skip if size is N/A, undefined, or invalid
+      if (!d.size || d.size === 'N/A' || d.size === 'NaN MB' || d.size === 'NaN GB') {
+        return sum
+      }
+      
       const sizeNum = parseFloat(d.size)
-      return sum + (d.size.includes('GB') ? sizeNum * 1024 : sizeNum)
+      // Skip if parseFloat returns NaN
+      if (isNaN(sizeNum)) {
+        return sum
+      }
+      
+      // Convert to MB (if GB, multiply by 1024)
+      if (d.size.includes('GB')) {
+        return sum + (sizeNum * 1024)
+      } else if (d.size.includes('MB')) {
+        return sum + sizeNum
+      } else {
+        // Assume MB if no unit specified
+        return sum + sizeNum
+      }
     }, 0)
+
+    // Format total size
+    let formattedSize = '0 MB'
+    if (totalSize > 0) {
+      if (totalSize > 1024) {
+        formattedSize = `${(totalSize / 1024).toFixed(1)} GB`
+      } else {
+        formattedSize = `${totalSize.toFixed(1)} MB`
+      }
+    }
 
     return {
       total: datasets.length,
       highSensitivity,
       totalRecords,
-      totalSize: totalSize > 1024 ? `${(totalSize / 1024).toFixed(1)} GB` : `${totalSize.toFixed(1)} MB`,
+      totalSize: formattedSize,
     }
   }, [datasets])
 
@@ -392,6 +597,23 @@ export default function Datasets() {
         </div>
       ),
     },
+    {
+      header: 'Actions',
+      accessor: 'actions',
+      width: '100px',
+      nowrap: true,
+      render: (row) => (
+        <div className="flex items-center justify-center">
+          <button
+            onClick={(e) => handleDeleteClick(e, row)}
+            className="p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors"
+            title="Delete dataset"
+          >
+            <IconTrash size={18} />
+          </button>
+        </div>
+      ),
+    },
   ]
 
   return (
@@ -413,12 +635,12 @@ export default function Datasets() {
             </p>
           </div>
           <Button
-            onClick={() => setIsDialogOpen(true)}
+            onClick={() => setIsUploadDialogOpen(true)}
             className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/30 transition-all duration-200 h-11 px-6"
             size="lg"
           >
-            <IconPlus size={20} />
-            Register New Dataset
+            <IconUpload size={20} />
+            Upload Data
           </Button>
         </div>
 
@@ -574,7 +796,7 @@ export default function Datasets() {
         {/* Datasets Table */}
         {filteredDatasets.length > 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <DataTable columns={columns} data={filteredDatasets} />
+            <DataTable columns={columns} data={filteredDatasets} onRowClick={handleRowClick} />
           </div>
         ) : (
           <div className="bg-white rounded-xl p-16 text-center border border-slate-200">
@@ -619,7 +841,14 @@ export default function Datasets() {
           </div>
         </div>
 
-        {/* Enhanced Register Dataset Dialog */}
+        {/* Upload Dialog */}
+        <UploadDialog
+          open={isUploadDialogOpen}
+          onOpenChange={setIsUploadDialogOpen}
+          onUploadComplete={handleUploadComplete}
+        />
+
+        {/* Enhanced Register Dataset Dialog (Legacy) */}
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-[700px]">
             <DialogHeader>
@@ -740,6 +969,47 @@ export default function Datasets() {
                   <>
                     <IconCheck size={18} />
                     Register Dataset
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Dataset</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete "{datasetToDelete?.name}"? This will permanently delete all {datasetToDelete?.records?.toLocaleString() || 0} records. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteDialog(false)
+                  setDatasetToDelete(null)
+                }}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteConfirm}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <>
+                    <IconLoader size={18} className="animate-spin mr-2" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <IconTrash size={18} className="mr-2" />
+                    Delete
                   </>
                 )}
               </Button>
