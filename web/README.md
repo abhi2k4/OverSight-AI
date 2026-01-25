@@ -2,6 +2,29 @@
 
 Showcase website for OverSight AI - built with **React + Vite + TailwindCSS**.
 
+## ✨ NEW: Website Revamp (v2.0) - January 2026
+
+**Major Update**: Complete redesign with clean, modern aesthetics following shadcn principles!
+
+### 🎯 What's New in v2.0
+- ⭐ **Video Section** - Your Canva video prominently displayed after hero
+- 🎨 **No Gradients** - Clean design with solid colors and subtle blur accents
+- 💜 **Consistent Purple Accent** - `#7C3AED` throughout all interactive elements
+- 🎭 **Enhanced Animations** - Smooth Framer Motion transitions
+- 📱 **Fully Responsive** - Mobile-first design that works everywhere
+- 💎 **6 Unique Testimonials** - Real quotes from diverse customers
+- 📚 **Comprehensive Docs** - Complete style guide and documentation
+
+### 📖 Documentation Files
+- **[README_REVAMP.md](./README_REVAMP.md)** - Complete overview
+- **[REVAMP_SUMMARY.md](./REVAMP_SUMMARY.md)** - What changed
+- **[STYLE_GUIDE.md](./STYLE_GUIDE.md)** - Design system
+- **[QUICK_START.md](./QUICK_START.md)** - Getting started
+- **[COMPARISON.md](./COMPARISON.md)** - Before/after
+- **[VISUAL_GUIDE.md](./VISUAL_GUIDE.md)** - Visual reference
+
+---
+
 ## 🚀 Quick Start
 
 \`\`\`bash

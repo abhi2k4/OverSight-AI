@@ -1,0 +1,29 @@
+{
+  "name": "oversight-docs",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Documentation for Oversight - Unified Enterprise Data Observability Platform",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abhi2k4/oversight.git"
+  },
+  "author": "Oversight",
+  "license": "MIT",
+  "dependencies": {
+    "next": "^14.2.0",
+    "nextra": "^3.3.1",
+    "nextra-theme-docs": "^3.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.0",
+    "typescript": "^5.3.0"
+  }
+}
+
