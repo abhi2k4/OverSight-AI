@@ -33,18 +33,14 @@ const Header = ({ theme, toggleTheme }) => {
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
-            <a href="#hero" className="flex items-center gap-2.5 group flex-shrink-0">
-              <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors">
+            <a href="#hero" className="flex items-center gap-3 group flex-shrink-0">
+              <div className="relative flex items-center justify-center rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors">
                 <img 
                   src="/OverSight.png" 
                   alt="OverSight Logo" 
-                  className="w-7 h-7 rounded-md object-cover"
+                  className="h-10 w-auto object-contain"
                 />
               </div>
-              <p className="text-base font-bold tracking-tight">
-                <span className="text-[#7C3AED]">OverSight</span>
-                <span className="text-muted-foreground font-normal">AI</span>
-              </p>
             </a>
 
             {/* Desktop Navigation */}
