@@ -13,6 +13,8 @@ import {
   IconLoader,
   IconMessage,
   IconRobot,
+  IconSearch,
+  IconBrain,
 } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -21,6 +23,7 @@ import { Progress } from '@/components/ui/progress'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import DataHubContextService from '@/services/DataHubContextService'
 
 const STORAGE_KEY = 'agents_data'
 
@@ -34,6 +37,9 @@ export default function AgentDetail() {
   const [chatLoading, setChatLoading] = useState(false)
   const [sessionId, setSessionId] = useState(null)
   const [activeTab, setActiveTab] = useState('overview')
+  const [datahubContext, setDatahubContext] = useState(null)
+  const [contextLoading, setContextLoading] = useState(false)
+  const [useDataHubContext, setUseDataHubContext] = useState(true)
   const { toast } = useToast()
 
   // Load agent data
@@ -112,9 +118,49 @@ export default function AgentDetail() {
     setChatLoading(true)
 
     try {
-      // Call Node.js agent query endpoint (LangChain JS)
+      let contextData = null
+      
+      // Get DataHub context if enabled
+      if (useDataHubContext) {
+        setContextLoading(true)
+        try {
+          contextData = await DataHubContextService.getQueryContext(currentInput, {
+            limit: 5
+          })
+          setDatahubContext(contextData)
+          
+          if (contextData.hasContext) {
+            // Add context indicator message
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: 'context',
+                content: `🔍 DataHub Context: ${contextData.summary}`,
+                timestamp: new Date(),
+                context: contextData
+              }
+            ])
+          }
+        } catch (error) {
+          console.warn('DataHub context error:', error)
+          // Continue without context
+        } finally {
+          setContextLoading(false)
+        }
+      }
+
+      // Call agent query endpoint with enhanced query
       const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
       const agentId = agent.id
+
+      // Enhance query with DataHub context if available
+      let enhancedQuery = currentInput
+      if (contextData && contextData.hasContext) {
+        const formattedContext = DataHubContextService.formatContextForAgent(contextData)
+        if (formattedContext) {
+          enhancedQuery = `${currentInput}\n\n[DataHub Context]\n${formattedContext}\n\nPlease use this dataset context to provide more specific and actionable responses.`
+        }
+      }
 
       const response = await fetch(`${apiBase}/agents/query`, {
         method: 'POST',
@@ -123,8 +169,9 @@ export default function AgentDetail() {
         },
         body: JSON.stringify({
           agent_id: agentId,
-          query: currentInput,
+          query: enhancedQuery,
           session_id: sessionId,
+          datahub_context: contextData
         }),
       })
 
@@ -153,6 +200,9 @@ export default function AgentDetail() {
           metadata: {
             execution_time_ms: data.execution_time_ms,
             tool_calls: data.tool_calls,
+            datahub_context_used: !!contextData?.hasContext,
+            datasets_found: contextData?.hasContext ? 
+              (contextData.datasets?.length || 0) + (contextData.domainDatasets?.length || 0) + (contextData.taggedDatasets?.length || 0) : 0
           },
         },
       ])
@@ -160,7 +210,7 @@ export default function AgentDetail() {
       toast({
         variant: 'default',
         title: 'Response Received',
-        description: `Agent responded in ${data.execution_time_ms || 0}ms`,
+        description: `Agent responded in ${data.execution_time_ms || 0}ms${contextData?.hasContext ? ' with DataHub context' : ''}`,
       })
     } catch (error) {
       console.error('Chat error:', error)
@@ -555,8 +605,17 @@ export default function AgentDetail() {
                       )}
                     >
                       {message.role !== 'user' && (
-                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <IconRobot size={18} className="text-blue-600" />
+                        <div className={cn(
+                          'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0',
+                          message.role === 'context' 
+                            ? 'bg-purple-100' 
+                            : 'bg-blue-100'
+                        )}>
+                          {message.role === 'context' ? (
+                            <IconBrain size={18} className="text-purple-600" />
+                          ) : (
+                            <IconRobot size={18} className="text-blue-600" />
+                          )}
                         </div>
                       )}
                       <div
@@ -566,7 +625,9 @@ export default function AgentDetail() {
                             ? 'bg-blue-600 text-white'
                             : message.role === 'error'
                               ? 'bg-red-50 text-red-700 border border-red-200'
-                              : 'bg-slate-100 text-slate-900'
+                              : message.role === 'context'
+                                ? 'bg-purple-50 text-purple-900 border border-purple-200'
+                                : 'bg-slate-100 text-slate-900'
                         )}
                       >
                         <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -576,7 +637,40 @@ export default function AgentDetail() {
                             {message.metadata.tool_calls &&
                               message.metadata.tool_calls.length > 0 &&
                               ` • ${message.metadata.tool_calls.length} tool calls`}
+                            {message.metadata.datahub_context_used &&
+                              ` • DataHub context (${message.metadata.datasets_found} datasets)`}
                           </p>
+                        )}
+                        {message.context && (
+                          <div className="mt-2 text-xs">
+                            <details className="cursor-pointer">
+                              <summary className="text-purple-700 hover:text-purple-900">
+                                View DataHub Context ({message.context.keywords?.join(', ')})
+                              </summary>
+                              <div className="mt-2 p-2 bg-white rounded border">
+                                {message.context.datasets?.length > 0 && (
+                                  <div className="mb-2">
+                                    <strong>Matching Datasets:</strong>
+                                    <ul className="list-disc list-inside ml-2">
+                                      {message.context.datasets.slice(0, 3).map((dataset, i) => (
+                                        <li key={i}>{dataset.name}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                {message.context.domainDatasets?.length > 0 && (
+                                  <div className="mb-2">
+                                    <strong>Domain Datasets:</strong>
+                                    <ul className="list-disc list-inside ml-2">
+                                      {message.context.domainDatasets.slice(0, 3).map((dataset, i) => (
+                                        <li key={i}>{dataset.name}</li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                              </div>
+                            </details>
+                          </div>
                         )}
                       </div>
                       {message.role === 'user' && (
@@ -600,12 +694,51 @@ export default function AgentDetail() {
                     </div>
                   </div>
                 )}
+                {contextLoading && (
+                  <div className="flex gap-3 justify-start">
+                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                      <IconBrain size={18} className="text-purple-600" />
+                    </div>
+                    <div className="bg-purple-50 rounded-lg px-4 py-3 border border-purple-200">
+                      <div className="flex items-center gap-2">
+                        <IconLoader size={16} className="animate-spin text-purple-600" />
+                        <span className="text-sm text-purple-700">Gathering DataHub context...</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* DataHub Context Toggle */}
+              <div className="flex items-center justify-between py-3 border-t border-slate-200">
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useDataHubContext}
+                      onChange={(e) => setUseDataHubContext(e.target.checked)}
+                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                    />
+                    <div className="flex items-center gap-2 text-sm">
+                      <IconDatabase size={16} className="text-purple-600" />
+                      <span className="text-slate-700">Use DataHub Context</span>
+                    </div>
+                  </label>
+                  <Badge variant="outline" className="text-xs">
+                    Port 9002
+                  </Badge>
+                </div>
+                {datahubContext && datahubContext.hasContext && (
+                  <div className="text-xs text-slate-500">
+                    {datahubContext.summary}
+                  </div>
+                )}
               </div>
 
               {/* Input */}
-              <div className="flex gap-2 pt-4 border-t border-slate-200">
+              <div className="flex gap-2 pt-2">
                 <Input
-                  placeholder="Type your message..."
+                  placeholder={`Type your message...${useDataHubContext ? ' (DataHub context will be included)' : ''}`}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -614,15 +747,15 @@ export default function AgentDetail() {
                       sendMessage()
                     }
                   }}
-                  disabled={chatLoading}
+                  disabled={chatLoading || contextLoading}
                   className="flex-1 h-11"
                 />
                 <Button
                   onClick={sendMessage}
-                  disabled={chatLoading || !input.trim()}
+                  disabled={chatLoading || contextLoading || !input.trim()}
                   className="bg-blue-600 hover:bg-blue-700 text-white h-11 px-6"
                 >
-                  {chatLoading ? (
+                  {chatLoading || contextLoading ? (
                     <IconLoader size={18} className="animate-spin" />
                   ) : (
                     <IconSend size={18} />

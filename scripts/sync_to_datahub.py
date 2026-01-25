@@ -9,8 +9,8 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from backend.database import SessionLocal
-from backend.datahub.sync_service import DataHubSyncService
-from backend.datahub.config import DataHubConfig
+from backend.datahub_integration.sync_service import DataHubSyncService
+from backend.datahub_integration.config import DataHubConfig
 
 
 def main():

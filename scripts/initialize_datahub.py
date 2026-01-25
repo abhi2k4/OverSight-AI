@@ -9,9 +9,9 @@ import os
 # Add backend to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
-from backend.datahub.tag_initializer import TagInitializer
-from backend.datahub.domain_initializer import DomainInitializer
-from backend.datahub.config import DataHubConfig
+from backend.datahub_integration.tag_initializer import TagInitializer
+from backend.datahub_integration.domain_initializer import DomainInitializer
+from backend.datahub_integration.config import DataHubConfig
 
 
 def main():

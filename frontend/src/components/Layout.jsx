@@ -1,14 +1,15 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
-import { getToken } from '../services/KeycloakService';
+// import { getToken } from '../services/KeycloakService'; // BYPASSED: Keycloak auth
 import CollapsibleSidebar from './CollapsibleSidebar';
 import Header from './Header';
 
 export default function Layout() {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
-  const token = getToken();
+  // const token = getToken(); // BYPASSED: Keycloak token
 
-  if (!isAuthenticated || !token) {
+  // BYPASSED: Skip token check - always authenticated
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 

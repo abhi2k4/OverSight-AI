@@ -5,6 +5,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { executeTool, queryLocalCollections, getAvailableCollections } from './dataTools.js';
 
 // Get current directory for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -201,6 +202,57 @@ export async function queryAgent(agentId, query, sessionId = null, chatHistory =
 
     const startTime = Date.now();
 
+    // Check if this agent type needs data access
+    const dataAgentTypes = ['product', 'sales', 'data_discovery', 'supervisor'];
+    const needsData = dataAgentTypes.includes(agent.agentType);
+    
+    console.log(`[Data Access] Agent type: ${agent.agentType}, Needs data: ${needsData}`);
+    
+    // Automatically fetch relevant data for certain agent types
+    let contextData = null;
+    let toolCalls = [];
+    
+    if (needsData) {
+      // Determine what data to fetch based on query and agent type
+      const queryLower = query.toLowerCase();
+      let collectionName = null;
+      
+      if (agent.agentType === 'product' || queryLower.includes('product')) {
+        collectionName = 'products';
+      } else if (agent.agentType === 'sales' || queryLower.includes('sales')) {
+        collectionName = 'sales';
+      } else if (queryLower.includes('user')) {
+        collectionName = 'users';
+      }
+      
+      console.log(`[Data Access] Query: "${query}"`);
+      console.log(`[Data Access] Collection to fetch: ${collectionName || 'ALL'}`);
+      
+      // Fetch data from local collections
+      try {
+        const dataResult = await queryLocalCollections(collectionName, 20);
+        console.log(`[Data Access] Data fetched:`, dataResult.collections ? 'SUCCESS' : 'NO DATA');
+        if (dataResult.collections) {
+          console.log(`[Data Access] Collections:`, Object.keys(dataResult.collections));
+        }
+        
+        toolCalls.push({
+          tool: 'query_local_collections',
+          params: { collection_name: collectionName, limit: 20 },
+          status: 'success',
+          result: dataResult
+        });
+        contextData = dataResult;
+      } catch (error) {
+        console.error('[Data Access] Error fetching data:', error);
+        toolCalls.push({
+          tool: 'query_local_collections',
+          status: 'error',
+          error: error.message
+        });
+      }
+    }
+
     // Prepare messages for Gemini API
     // Gemini expects: systemInstruction and contents array with role and parts
     const contents = [];
@@ -217,10 +269,23 @@ export async function queryAgent(agentId, query, sessionId = null, chatHistory =
       }
     }
     
-    // Add current query
+    // Enhance query with data context if available
+    let enhancedQuery = query;
+    if (contextData && contextData.collections) {
+      const collectionSummary = Object.entries(contextData.collections)
+        .map(([key, data]) => {
+          const sampleRecords = data.records.slice(0, 3);
+          return `\n\n**Data from ${key}** (${data.record_count} total records):\n${JSON.stringify(sampleRecords, null, 2)}`;
+        })
+        .join('\n');
+      
+      enhancedQuery = `${query}\n\n**Available Data Context:**${collectionSummary}\n\nPlease use this data to answer the question above. Analyze the actual data and provide insights based on what you see.`;
+    }
+    
+    // Add current query (enhanced with data if available)
     contents.push({
       role: 'user',
-      parts: [{ text: query }],
+      parts: [{ text: enhancedQuery }],
     });
 
     // Call Gemini API directly
@@ -277,7 +342,12 @@ IMPORTANT: Always respond in natural, conversational language. Use complete sent
       agent_type: agent.agentType,
       execution_time_ms: executionTime,
       timestamp: new Date().toISOString(),
-      tool_calls: [],
+      tool_calls: toolCalls,
+      data_context: contextData ? {
+        collections_used: contextData.collections ? Object.keys(contextData.collections) : [],
+        total_records: contextData.collections ? 
+          Object.values(contextData.collections).reduce((sum, c) => sum + c.record_count, 0) : 0
+      } : null
     };
   } catch (error) {
     console.error('Error querying agent:', error);
