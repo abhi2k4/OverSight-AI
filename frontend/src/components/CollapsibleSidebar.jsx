@@ -14,6 +14,7 @@ import {
   IconChevronRight,
   IconSettings,
   IconMessageChatbot,
+  IconFileDatabase,
 } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '../store/appStore';
@@ -23,6 +24,7 @@ const navItems = [
   { path: '/dashboard', icon: IconLayoutDashboard, label: 'Dashboard' },
   { path: '/agents', icon: IconRobot, label: 'AI Agents' },
   { path: '/datasets', icon: IconDatabase, label: 'Datasets' },
+  { path: '/metadata', icon: IconFileDatabase, label: 'Metadata Manager' },
   { path: '/policies', icon: IconGavel, label: 'Policies' },
   { path: '/compliance', icon: IconShieldCheck, label: 'Compliance Manager' },
   { path: '/alerts', icon: IconAlertTriangle, label: 'Alerts' },

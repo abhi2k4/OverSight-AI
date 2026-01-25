@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-// import { initKeycloak, getToken } from './services/KeycloakService'; // BYPASSED: Keycloak auth
+import { initKeycloak, getToken } from './services/KeycloakService';
 import { useAppStore } from './store/appStore';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -14,20 +14,16 @@ import AuditLogs from './pages/AuditLogs';
 import Settings from './pages/Settings';
 import ChatbotMonitor from './pages/ChatbotMonitor';
 import ComplianceManager from './pages/ComplianceManager';
+import MetadataManager from './pages/MetadataManager';
 import Login from './pages/Login';
 import { Toaster } from './components/ui/toaster';
 
 function App() {
-  const [keycloakInitialized, setKeycloakInitialized] = useState(true); // BYPASSED: Set to true directly
+  const [keycloakInitialized, setKeycloakInitialized] = useState(false);
   const [initError, setInitError] = useState(null);
   const setAuthenticated = useAppStore((state) => state.setAuthenticated);
 
   useEffect(() => {
-    // BYPASSED: Keycloak initialization - directly set authenticated
-    setAuthenticated(true);
-    setKeycloakInitialized(true);
-    
-    /* ORIGINAL KEYCLOAK CODE - COMMENTED OUT
     initKeycloak()
       .then((authenticated) => {
         if (authenticated) {
@@ -41,7 +37,6 @@ function App() {
         console.error('Keycloak initialization failed:', error);
         setInitError('Failed to initialize authentication');
       });
-    */
   }, [setAuthenticated]);
 
   if (initError) {
@@ -95,6 +90,7 @@ function App() {
           <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="chatbot" element={<ChatbotMonitor />} />
           <Route path="compliance" element={<ComplianceManager />} />
+          <Route path="metadata" element={<MetadataManager />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

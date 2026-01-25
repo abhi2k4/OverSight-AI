@@ -8,6 +8,7 @@ import {
   IconHistory,
   IconSettings,
   IconX,
+  IconFileDatabase,
 } from '@tabler/icons-react'
 import { useAppStore } from '../store/appStore'
 
@@ -15,6 +16,7 @@ const navigationItems = [
   { name: 'Dashboard', path: '/', icon: IconDashboard },
   { name: 'AI Agents', path: '/agents', icon: IconRobot },
   { name: 'Datasets', path: '/datasets', icon: IconDatabase },
+  { name: 'Metadata Manager', path: '/metadata', icon: IconFileDatabase },
   { name: 'Policies', path: '/policies', icon: IconShieldCheck },
   { name: 'Alerts', path: '/alerts', icon: IconAlertTriangle, badge: true },
   { name: 'Audit Logs', path: '/audit-logs', icon: IconHistory },
