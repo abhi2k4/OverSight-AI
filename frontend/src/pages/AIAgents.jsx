@@ -11,6 +11,8 @@ import {
   IconRobot,
   IconLoader,
   IconCheck,
+  IconDatabase,
+  IconBrain,
 } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +36,8 @@ import {
 } from '@/components/ui/table'
 import { Progress } from '@/components/ui/progress'
 import { useToast } from '@/hooks/use-toast'
+import { cn } from '@/lib/utils'
+import DataHubContextService from '@/services/DataHubContextService'
 
 const STORAGE_KEY = 'agents_data'
 
@@ -78,6 +82,7 @@ export default function AIAgents() {
   const [agentDescription, setAgentDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [datahubStatus, setDatahubStatus] = useState({ connected: false, loading: true })
   const { toast } = useToast()
 
   // Clean up static agents from localStorage on mount
@@ -112,6 +117,33 @@ export default function AIAgents() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(agents))
     }
   }, [agents])
+
+  // Check DataHub status
+  useEffect(() => {
+    const checkDataHubStatus = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+        const response = await fetch(`${apiBase}/datahub/status`)
+        const status = await response.json()
+        setDatahubStatus({
+          connected: status.connected || false,
+          loading: false,
+          message: status.message
+        })
+      } catch (error) {
+        setDatahubStatus({
+          connected: false,
+          loading: false,
+          message: 'DataHub status check failed'
+        })
+      }
+    }
+
+    checkDataHubStatus()
+    // Check status every 30 seconds
+    const interval = setInterval(checkDataHubStatus, 30000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Filter agents based on search
   const filteredAgents = agents.filter((agent) => {
@@ -244,9 +276,37 @@ export default function AIAgents() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-2">AI Agents Inventory</h1>
-            <p className="text-slate-600">
+            <p className="text-slate-600 mb-3">
               Track compliance status, trust scores, and activity logs across your AI ecosystem
             </p>
+            {/* DataHub Status Indicator */}
+            <div className="flex items-center gap-2">
+              <IconDatabase size={16} className="text-purple-600" />
+              <span className="text-sm text-slate-600">DataHub Context:</span>
+              {datahubStatus.loading ? (
+                <div className="flex items-center gap-1">
+                  <IconLoader size={14} className="animate-spin text-slate-400" />
+                  <span className="text-xs text-slate-500">Checking...</span>
+                </div>
+              ) : (
+                <Badge 
+                  variant={datahubStatus.connected ? "default" : "destructive"}
+                  className={cn(
+                    "text-xs",
+                    datahubStatus.connected 
+                      ? "bg-green-100 text-green-700 border-green-200" 
+                      : "bg-red-100 text-red-700 border-red-200"
+                  )}
+                >
+                  {datahubStatus.connected ? "Connected (Port 9002)" : "Disconnected"}
+                </Badge>
+              )}
+              {datahubStatus.connected && (
+                <span className="text-xs text-green-600">
+                  ✓ Dataset context available for enhanced agent responses
+                </span>
+              )}
+            </div>
           </div>
           <Button
             onClick={() => setIsDialogOpen(true)}

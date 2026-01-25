@@ -43,10 +43,10 @@ from backend.repositories.enriched_record_repository import EnrichedRecordReposi
 from backend.services.analytics_service import AnalyticsService
 from backend.services.enrichment_orchestrator import EnrichmentOrchestrator
 from backend.database import get_db, init_db
-from backend.datahub.config import DataHubConfig
-from backend.datahub.sync_service import DataHubSyncService
-from backend.datahub.tag_initializer import TagInitializer
-from backend.datahub.domain_initializer import DomainInitializer
+from backend.datahub_integration.config import DataHubConfig
+from backend.datahub_integration.sync_service import DataHubSyncService
+from backend.datahub_integration.tag_initializer import TagInitializer
+from backend.datahub_integration.domain_initializer import DomainInitializer
 from backend.api.agent_routes import router as agent_router
 from backend.api.websocket_routes import router as websocket_router
 from backend.ingestion.pipeline import IngestionPipeline
@@ -401,6 +401,105 @@ async def initialize_datahub():
             status_code=HTTP_500_INTERNAL_ERROR,
             detail=f"DataHub initialization failed: {str(e)}"
         )
+
+
+# DataHub Search Endpoints for Agent Context
+@app.get(f"{settings.api_prefix}/datahub/search")
+async def search_datasets(
+    query: str = "*",
+    platform: Optional[str] = None,
+    limit: int = 10
+):
+    """
+    Search datasets in DataHub for agent context
+    """
+    try:
+        from backend.integrations.datahub_client import get_datahub_client
+        
+        client = get_datahub_client()
+        results = await client.search_datasets(
+            query=query,
+            platform=platform,
+            limit=limit
+        )
+        
+        return {
+            "status": "success",
+            "count": len(results),
+            "datasets": results
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "datasets": []
+        }
+
+
+@app.get(f"{settings.api_prefix}/datahub/search/domain")
+async def search_datasets_by_domain(
+    domain: str,
+    limit: int = 10
+):
+    """
+    Search datasets by business domain for agent context
+    """
+    try:
+        from backend.integrations.datahub_client import get_datahub_client
+        
+        client = get_datahub_client()
+        results = await client.search_by_domain(
+            domain=domain,
+            limit=limit
+        )
+        
+        return {
+            "status": "success",
+            "domain": domain,
+            "count": len(results),
+            "datasets": results
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "datasets": []
+        }
+
+
+@app.get(f"{settings.api_prefix}/datahub/search/tags")
+async def search_datasets_by_tags(
+    tags: str,
+    limit: int = 10
+):
+    """
+    Search datasets by tags for agent context
+    """
+    try:
+        from backend.integrations.datahub_client import get_datahub_client
+        
+        client = get_datahub_client()
+        tag_list = [t.strip() for t in tags.split(",")]
+        results = await client.search_by_tags(
+            tags=tag_list,
+            limit=limit
+        )
+        
+        return {
+            "status": "success",
+            "tags": tag_list,
+            "count": len(results),
+            "datasets": results
+        }
+        
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "datasets": []
+        }
 
 
 @app.post(f"{settings.api_prefix}/datasets/register", response_model=DatasetRegisterResponse)
