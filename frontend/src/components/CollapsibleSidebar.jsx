@@ -24,6 +24,7 @@ const navItems = [
   { path: '/agents', icon: IconRobot, label: 'AI Agents' },
   { path: '/datasets', icon: IconDatabase, label: 'Datasets' },
   { path: '/policies', icon: IconGavel, label: 'Policies' },
+  { path: '/compliance', icon: IconShieldCheck, label: 'Compliance Manager' },
   { path: '/alerts', icon: IconAlertTriangle, label: 'Alerts' },
   { path: '/audit-logs', icon: IconFileText, label: 'Audit Logs' },
   { path: '/chatbot', icon: IconMessageChatbot, label: 'Chatbot Monitor' },

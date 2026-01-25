@@ -17,12 +17,12 @@
         
         // Test 1: Check if realm exists
         log('Testing Keycloak configuration...');
-        log('URL: http://localhost:8080');
+        log('URL: http://localhost:8180');
         log('Realm: oversight');
         log('Client ID: oversight-app');
         
         // Test 2: Try to fetch realm info
-        fetch('http://localhost:8080/realms/oversight')
+        fetch('http://localhost:8180/realms/oversight')
             .then(response => {
                 log('Realm response status: ' + response.status);
                 return response.json();

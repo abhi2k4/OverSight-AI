@@ -15,7 +15,7 @@ if (fs.existsSync('.env')) {
   });
 }
 
-const KEYCLOAK_URL = envConfig.REACT_APP_KEYCLOAK_URL || 'http://localhost:8080';
+const KEYCLOAK_URL = envConfig.REACT_APP_KEYCLOAK_URL;
 const REALM = envConfig.REACT_APP_KEYCLOAK_REALM || 'master';
 
 console.log('Testing Keycloak connectivity...');

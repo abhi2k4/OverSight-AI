@@ -13,6 +13,7 @@ import Alerts from './pages/Alerts';
 import AuditLogs from './pages/AuditLogs';
 import Settings from './pages/Settings';
 import ChatbotMonitor from './pages/ChatbotMonitor';
+import ComplianceManager from './pages/ComplianceManager';
 import Login from './pages/Login';
 import { Toaster } from './components/ui/toaster';
 
@@ -87,6 +88,7 @@ function App() {
           <Route path="alerts" element={<Alerts />} />
           <Route path="audit-logs" element={<AuditLogs />} />
           <Route path="chatbot" element={<ChatbotMonitor />} />
+          <Route path="compliance" element={<ComplianceManager />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
