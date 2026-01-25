@@ -51,3 +51,4 @@ output/*/
 frontend/server/uploads/
 uploads/
 backend/oversight.db
+backend/datahub~HEAD
