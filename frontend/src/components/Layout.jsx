@@ -1,12 +1,14 @@
 import { Outlet, Navigate } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
+import { getToken } from '../services/KeycloakService';
 import CollapsibleSidebar from './CollapsibleSidebar';
 import Header from './Header';
 
 export default function Layout() {
   const isAuthenticated = useAppStore((state) => state.isAuthenticated);
+  const token = getToken();
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !token) {
     return <Navigate to="/login" replace />;
   }
 

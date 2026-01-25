@@ -24,6 +24,7 @@ import {
   MobileNavToggle,
   NavbarButton
 } from '@/components/ui/resizable-navbar';
+import HeroSection from '@/components/HeroSection';
 
 // --- Components ---
 
@@ -209,85 +210,8 @@ export default function LandingPage() {
         {/* Main Content */}
         <main className="flex flex-col w-full relative z-10">
           
-          {/* Hero Section */}
-          <section id="hero" className="w-full relative overflow-hidden pt-20 md:pt-32 pb-20">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-[#1E40AF]/20 blur-[120px] rounded-full pointer-events-none -z-10" />
-            
-            <div className="flex flex-col items-center px-6 relative z-10">
-              <FadeIn className="flex flex-col items-center gap-8 text-center max-w-4xl mx-auto">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs font-semibold uppercase tracking-wider">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                  </span>
-                  v2.0 is now live
-                </div>
-
-                <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-balance bg-clip-text text-transparent bg-gradient-to-b from-foreground to-foreground/60 leading-[1.1]">
-                  Governance for the <br/>
-                  <span className="text-[#1E40AF]">Age of AI Agents</span>
-                </h1>
-                
-                <p className="text-lg md:text-xl text-muted-foreground max-w-2xl text-balance leading-relaxed">
-                  Complete oversight, compliance, and monitoring for your autonomous agents. 
-                  Simple enough for developers, powerful enough for enterprise security.
-                </p>
-
-                <div className="flex items-center gap-4 pt-4">
-                  <a href="#" className="h-12 px-8 rounded-full bg-[#1E40AF] text-white font-medium flex items-center gap-2 hover:bg-[#1e3a8a] transition-all shadow-xl shadow-blue-900/20 hover:scale-105 active:scale-95">
-                    Start Free Trial <IconArrowRight size={18} />
-                  </a>
-                  <a href="#" className="h-12 px-8 rounded-full border border-border bg-background hover:bg-secondary text-foreground font-medium flex items-center gap-2 transition-all hover:scale-105 active:scale-95">
-                    View Demo
-                  </a>
-                </div>
-              </FadeIn>
-
-              <FadeIn delay={200} className="mt-20 w-full max-w-6xl relative">
-                <div className="rounded-xl border border-border/50 bg-background/50 backdrop-blur shadow-2xl overflow-hidden aspect-[16/9] md:aspect-[2/1] group relative">
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-50" />
-                  
-                  {/* Mock Dashboard UI */}
-                  <div className="w-full h-full bg-slate-50 dark:bg-slate-900/50 p-4 md:p-8 flex flex-col gap-6">
-                    <div className="h-8 w-1/3 bg-slate-200 dark:bg-slate-800 rounded-lg animate-pulse" />
-                    <div className="grid grid-cols-3 gap-6">
-                      <div className="h-32 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4 space-y-3">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50" />
-                        <div className="h-4 w-2/3 bg-slate-100 dark:bg-slate-700 rounded" />
-                        <div className="h-8 w-1/2 bg-slate-100 dark:bg-slate-700 rounded" />
-                      </div>
-                      <div className="h-32 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4 space-y-3">
-                        <div className="h-8 w-8 rounded-full bg-green-100 dark:bg-green-900/50" />
-                        <div className="h-4 w-2/3 bg-slate-100 dark:bg-slate-700 rounded" />
-                        <div className="h-8 w-1/2 bg-slate-100 dark:bg-slate-700 rounded" />
-                      </div>
-                      <div className="h-32 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm p-4 space-y-3">
-                        <div className="h-8 w-8 rounded-full bg-purple-100 dark:bg-purple-900/50" />
-                        <div className="h-4 w-2/3 bg-slate-100 dark:bg-slate-700 rounded" />
-                        <div className="h-8 w-1/2 bg-slate-100 dark:bg-slate-700 rounded" />
-                      </div>
-                    </div>
-                    <div className="flex-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm p-6">
-                        <div className="flex items-end gap-2 h-full pb-0">
-                            {[40, 65, 45, 80, 55, 70, 40, 60, 75, 50, 65, 85].map((h, i) => (
-                                <div key={i} className="flex-1 bg-blue-500/10 dark:bg-blue-500/20 rounded-t-sm relative group/bar overflow-hidden" style={{height: `${h}%`}}>
-                                    <div className="absolute inset-x-0 bottom-0 top-full bg-blue-500 transition-all duration-700 group-hover/bar:top-0" />
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                  </div>
-
-                  <div className="absolute inset-0 flex items-center justify-center bg-background/10 backdrop-blur-[2px] transition-opacity duration-500 group-hover:opacity-0">
-                    <div className="bg-background/80 backdrop-blur-md border border-border px-6 py-3 rounded-full shadow-xl flex items-center gap-3">
-                        <IconActivity className="text-blue-600 animate-pulse" />
-                        <span className="font-medium">Live Monitoring Preview</span>
-                    </div>
-                  </div>
-                </div>
-              </FadeIn>
-            </div>
-          </section>
+          {/* Hero Section with Animated Diagram */}
+          <HeroSection />
 
           {/* Company Section - Infinity Grid */}
           <section id="company" className="relative py-20 border-y border-border bg-slate-50/50 dark:bg-slate-900/20">

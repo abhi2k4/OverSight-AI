@@ -1,6 +1,6 @@
 import { IconBell, IconHelpCircle, IconLogout } from '@tabler/icons-react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useAppStore } from '../store/appStore';
+import { useLocation } from 'react-router-dom';
+import { logout } from '../services/KeycloakService';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 
@@ -15,14 +15,10 @@ const routeNames = {
 
 export default function Header() {
   const location = useLocation();
-  const navigate = useNavigate();
-  const user = useAppStore((state) => state.user);
-  const setAuthenticated = useAppStore((state) => state.setAuthenticated);
   const currentPage = routeNames[location.pathname] || 'Dashboard';
 
   const handleLogout = () => {
-    setAuthenticated(false, null);
-    navigate('/login');
+    logout();
   };
 
   return (
