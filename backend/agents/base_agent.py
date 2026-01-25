@@ -24,7 +24,8 @@ class BaseAgent:
         agent_type: str,
         name: str,
         tools: Optional[List] = None,
-        llm_config: Optional[Dict[str, Any]] = None
+        llm_config: Optional[Dict[str, Any]] = None,
+        system_prompt: Optional[str] = None
     ):
         self.agent_type = agent_type
         self.name = name
@@ -36,8 +37,8 @@ class BaseAgent:
         # Get tools for this agent type
         self.tools = tools or TOOL_GROUPS.get(agent_type, [])
         
-        # Get specialization prompt
-        self.system_prompt = AGENT_PROMPTS.get(agent_type, "You are a helpful AI assistant.")
+        # Get specialization prompt - use provided one or get from config
+        self.system_prompt = system_prompt or AGENT_PROMPTS.get(agent_type, "You are a helpful AI assistant.")
         
         # Create agent
         self.agent_executor = self._create_agent()

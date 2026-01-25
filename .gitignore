@@ -46,3 +46,7 @@ data/oversight.db
 # Output directories
 output/*/
 !output/.gitkeep
+
+# Uploaded files
+frontend/server/uploads/
+uploads/

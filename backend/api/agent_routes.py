@@ -199,11 +199,13 @@ async def delete_agent(
 async def query_agent(
     request: AgentQueryRequest,
     agent_type: Optional[str] = Query("supervisor", description="Agent type to query"),
+    agent_id: Optional[str] = Query(None, description="Agent ID to query (uses stored specialization prompt)"),
     db: Session = Depends(get_db)
 ):
     """
     Query an agent with a natural language question.
     Uses supervisor agent by default for intelligent routing.
+    If agent_id is provided, loads the agent from DB and uses its specialization_prompt.
     """
     try:
         # Get or create conversation
@@ -211,7 +213,24 @@ async def query_agent(
         agent_repo = AgentRepository(db)
         
         # Determine which agent to use
-        if agent_type == "supervisor":
+        agent = None
+        db_agent = None
+        
+        if agent_id:
+            # Load agent from database and create custom instance
+            db_agent = agent_repo.get_agent(agent_id)
+            if not db_agent:
+                raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+            
+            # Create custom agent instance with stored specialization prompt
+            from backend.agents.base_agent import BaseAgent
+            agent = BaseAgent(
+                agent_type=db_agent.agent_type.value,
+                name=db_agent.name,
+                llm_config=db_agent.llm_config or {},
+                system_prompt=db_agent.specialization_prompt or None
+            )
+        elif agent_type == "supervisor":
             agent = get_supervisor_agent()
         else:
             agent = get_agent_by_type(agent_type)
@@ -248,9 +267,11 @@ async def query_agent(
         
         # Create or get conversation for logging
         if not conversation_id:
-            # Find agent in DB or create placeholder
-            agent_name = agent.name
-            db_agent = agent_repo.get_agent_by_name(agent_name)
+            # Use db_agent if we loaded it, otherwise try to find by name
+            if not db_agent:
+                agent_name = agent.name
+                db_agent = agent_repo.get_agent_by_name(agent_name)
+            
             if db_agent:
                 conversation = conv_repo.create_conversation(
                     agent_id=db_agent.id,

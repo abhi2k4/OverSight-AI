@@ -99,3 +99,20 @@ class AnalyticsResponse(BaseModel):
     """Response for analytics endpoint"""
     stats: EnrichmentStats
     timestamp: datetime
+
+
+class DatasetRegisterRequest(BaseModel):
+    """Request for registering a new dataset"""
+    description: str = Field(..., description="Description of the dataset to register")
+
+
+class DatasetRegisterResponse(BaseModel):
+    """Response from dataset registration"""
+    dataset_name: str
+    description: str
+    sensitivity: str
+    records: int
+    size: str
+    compliance: List[str]
+    status: str
+    last_accessed: str

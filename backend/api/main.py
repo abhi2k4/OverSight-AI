@@ -25,7 +25,9 @@ from backend.api.schemas import (
     EnrichedRecordsResponse,
     CollectionsResponse,
     Collection,
-    AnalyticsResponse
+    AnalyticsResponse,
+    DatasetRegisterRequest,
+    DatasetRegisterResponse
 )
 from backend.api.helpers import parse_metadata_json, build_enriched_record_response
 from backend.api.dependencies import (
@@ -45,6 +47,8 @@ from backend.api.agent_routes import router as agent_router
 from backend.api.websocket_routes import router as websocket_router
 
 from dotenv import load_dotenv
+import json
+import re
 load_dotenv()
 
 app = FastAPI(
@@ -382,6 +386,129 @@ async def initialize_datahub():
         raise HTTPException(
             status_code=HTTP_500_INTERNAL_ERROR,
             detail=f"DataHub initialization failed: {str(e)}"
+        )
+
+
+@app.post(f"{settings.api_prefix}/datasets/register", response_model=DatasetRegisterResponse)
+async def register_dataset(request: DatasetRegisterRequest):
+    """
+    Register a new dataset by generating metadata using Gemini LLM.
+    
+    Takes a dataset description and uses AI to generate:
+    - Dataset Name
+    - Description (one-liner)
+    - Sensitivity level
+    - Estimated records count
+    - Estimated size
+    - Compliance requirements
+    - Status
+    - Last accessed time
+    """
+    try:
+        from google import genai
+        
+        api_key = settings.gemini_api_key or os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            raise HTTPException(
+                status_code=503,
+                detail="GEMINI_API_KEY not configured. Please set it in your environment variables."
+            )
+        
+        client = genai.Client(api_key=api_key)
+        model = settings.gemini_model
+        
+        prompt = f"""You are a data governance assistant. Based on the following dataset description, generate structured metadata.
+
+Dataset Description: {request.description}
+
+Generate a JSON response with the following structure:
+{{
+  "dataset_name": "A concise, descriptive name for the dataset",
+  "description": "A one-line description of what this dataset contains",
+  "sensitivity": "Low, Medium, High, or Critical",
+  "records": <estimated number of records as integer>,
+  "size": "Estimated size in GB or MB (e.g., '24.5 GB' or '150 MB')",
+  "compliance": ["List", "of", "applicable", "compliance", "frameworks", "like", "GDPR", "HIPAA", "CCPA", "PCI-DSS"],
+  "status": "active",
+  "last_accessed": "Just now"
+}}
+
+Rules:
+- Dataset name should be clear and professional
+- Description must be exactly one line
+- Sensitivity: Use "Low" for public data, "Medium" for internal data, "High" for sensitive data, "Critical" for highly sensitive data
+- Records: Provide a realistic estimate based on the description
+- Size: Estimate based on typical data sizes (e.g., 1M records ≈ 1-5 GB for structured data)
+- Compliance: Include relevant frameworks (GDPR for EU personal data, HIPAA for health data, CCPA for California data, PCI-DSS for payment data, SOC 2 for security)
+- Status: Always "active" for new registrations
+- Last accessed: Always "Just now" for new registrations
+
+Return ONLY valid JSON, no markdown formatting, no code blocks."""
+
+        try:
+            response = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config={
+                    "temperature": 0.3,
+                    "max_output_tokens": 500,
+                }
+            )
+            
+            response_text = response.text.strip()
+            
+            # Clean up response - remove markdown code blocks if present
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            elif response_text.startswith("```"):
+                response_text = response_text[3:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+            
+            # Parse JSON
+            data = json.loads(response_text)
+            
+            # Validate and set defaults
+            dataset_name = data.get("dataset_name", "Unnamed Dataset")
+            description = data.get("description", request.description)
+            sensitivity = data.get("sensitivity", "Medium")
+            records = int(data.get("records", 100000))
+            size = data.get("size", "1 GB")
+            compliance = data.get("compliance", [])
+            if not isinstance(compliance, list):
+                compliance = []
+            status = data.get("status", "active")
+            last_accessed = data.get("last_accessed", "Just now")
+            
+            return DatasetRegisterResponse(
+                dataset_name=dataset_name,
+                description=description,
+                sensitivity=sensitivity,
+                records=records,
+                size=size,
+                compliance=compliance,
+                status=status,
+                last_accessed=last_accessed
+            )
+            
+        except json.JSONDecodeError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to parse AI response as JSON: {str(e)}. Response: {response_text[:200]}"
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Gemini API error: {str(e)}"
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_ERROR,
+            detail=f"Dataset registration failed: {str(e)}"
         )
 
 

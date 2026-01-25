@@ -25,4 +25,11 @@ export default defineConfig({
     port: 3002,
     open: true,
   },
+  ssr: {
+    external: ['langchain', '@langchain/core', '@langchain/google-genai', '@langchain/community'],
+    noExternal: []
+  },
+  optimizeDeps: {
+    exclude: ['langchain', '@langchain/core', '@langchain/google-genai']
+  },
 })
