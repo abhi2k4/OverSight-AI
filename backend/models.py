@@ -32,6 +32,38 @@ class RiskLevel(str, enum.Enum):
     CRITICAL = "critical"
 
 
+class PolicyStatus(str, enum.Enum):
+    """Policy status enumeration"""
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    DRAFT = "draft"
+
+
+class PolicyCategory(str, enum.Enum):
+    """Policy category enumeration"""
+    PRIVACY = "Privacy"
+    SECURITY = "Security"
+    PERFORMANCE = "Performance"
+    QUALITY = "Quality"
+    COMPLIANCE = "Compliance"
+
+
+class PolicySeverity(str, enum.Enum):
+    """Policy severity enumeration"""
+    LOW = "Low"
+    MEDIUM = "Medium"
+    HIGH = "High"
+    CRITICAL = "Critical"
+
+
+class ViolationStatus(str, enum.Enum):
+    """Violation status enumeration"""
+    ACTIVE = "active"
+    INVESTIGATING = "investigating"
+    ACKNOWLEDGED = "acknowledged"
+    RESOLVED = "resolved"
+
+
 class MessageRole(str, enum.Enum):
     """Message role enumeration"""
     USER = "user"
@@ -169,3 +201,73 @@ class AgentToolExecution(Base):
     # Relationships
     agent = relationship("Agent", back_populates="tool_executions")
     conversation = relationship("AgentConversation", back_populates="tool_executions")
+
+
+class Policy(Base):
+    """Model for governance policies"""
+    __tablename__ = "policies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, index=True)
+    description = Column(Text, nullable=False)
+    category = Column(Enum(PolicyCategory), nullable=False, index=True)
+    severity = Column(Enum(PolicySeverity), nullable=False, index=True)
+    status = Column(Enum(PolicyStatus), default=PolicyStatus.ACTIVE, index=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    violations = relationship("Violation", back_populates="policy", cascade="all, delete-orphan")
+
+
+class Compliance(Base):
+    """Model for compliance frameworks"""
+    __tablename__ = "compliances"
+
+    id = Column(String(50), primary_key=True)  # e.g., 'gdpr', 'hipaa'
+    name = Column(String(100), nullable=False, index=True)
+    full_name = Column(String(200), nullable=False)
+    description = Column(Text, nullable=False)
+    details = Column(Text, nullable=True)
+    category = Column(String(100), nullable=True)
+    region = Column(String(100), nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Relationships
+    violations = relationship("Violation", back_populates="compliance", cascade="all, delete-orphan")
+
+
+class Violation(Base):
+    """Model for policy/compliance violations"""
+    __tablename__ = "violations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    agent_id = Column(String(36), ForeignKey("agents.id"), nullable=True, index=True)
+    policy_id = Column(Integer, ForeignKey("policies.id"), nullable=True, index=True)
+    compliance_id = Column(String(50), ForeignKey("compliances.id"), nullable=True, index=True)
+    
+    violation_type = Column(String(100), nullable=False)  # 'policy' or 'compliance'
+    severity = Column(String(20), nullable=False, index=True)  # 'critical', 'warning', 'info'
+    description = Column(Text, nullable=False)
+    
+    # Context
+    query_text = Column(Text, nullable=True)
+    response_text = Column(Text, nullable=True)
+    langfuse_trace_id = Column(String(100), nullable=True, index=True)
+    
+    # Status
+    status = Column(Enum(ViolationStatus), default=ViolationStatus.ACTIVE, index=True)
+    
+    # Timestamps
+    detected_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    
+    # Relationships
+    agent = relationship("Agent")
+    policy = relationship("Policy", back_populates="violations")
+    compliance = relationship("Compliance", back_populates="violations")

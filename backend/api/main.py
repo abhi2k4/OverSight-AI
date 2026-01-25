@@ -81,6 +81,15 @@ app.include_router(agent_router, prefix=settings.api_prefix)
 # Include WebSocket routes
 app.include_router(websocket_router, prefix=settings.api_prefix)
 
+# Include policy and compliance routes
+from backend.api.policy_routes import router as policy_router
+from backend.api.compliance_routes import router as compliance_router
+from backend.api.violation_routes import router as violation_router
+
+app.include_router(policy_router, prefix=settings.api_prefix)
+app.include_router(compliance_router, prefix=settings.api_prefix)
+app.include_router(violation_router, prefix=settings.api_prefix)
+
 
 @app.on_event("startup")
 async def startup_event():

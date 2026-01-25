@@ -426,69 +426,103 @@ app.get('/metrics', async (req, res) => {
     let langfuseData = null;
     if (langfuse) {
       try {
-        const tracesResponse = await langfuse.fetchTraces({
-          limit: 100,
-        });
+        // Use Langfuse API to fetch traces
+        const baseUrl = process.env.LANGFUSE_BASE_URL || 'http://localhost:3000';
+        const authHeader = Buffer.from(
+          `${process.env.LANGFUSE_PUBLIC_KEY}:${process.env.LANGFUSE_SECRET_KEY}`
+        ).toString('base64');
+        
+        // Fetch traces from Langfuse API
+        const tracesResponse = await fetch(
+          `${baseUrl}/api/public/traces?limit=100`,
+          {
+            headers: {
+              'Authorization': `Basic ${authHeader}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
 
-        if (tracesResponse && tracesResponse.data) {
-          const traceData = tracesResponse.data;
+        let traceData = [];
+        if (tracesResponse.ok) {
+          const responseData = await tracesResponse.json();
+          traceData = responseData.data || responseData || [];
+        }
+
+        if (traceData && traceData.length > 0) {
           const totalTraces = traceData.length;
           
+          // Calculate metrics from trace data
           const latencies = traceData
-            .map(t => t.latency || 0)
+            .map(t => {
+              // Try different latency fields
+              return t.latency || t.duration || 
+                     (t.endTime && t.startTime ? new Date(t.endTime) - new Date(t.startTime) : 0);
+            })
             .filter(l => l > 0);
           const avgLatency = latencies.length > 0
             ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length)
             : 0;
 
           const totalCostFromTraces = traceData.reduce((sum, t) => {
-            return sum + (t.calculatedTotalCost || 0);
+            return sum + (t.calculatedTotalCost || t.totalCost || 0);
           }, 0);
 
           const modelUsage = {};
           traceData.forEach(trace => {
-            if (trace.observations) {
-              trace.observations.forEach(obs => {
-                const model = obs.model || 'unknown';
-                modelUsage[model] = (modelUsage[model] || 0) + 1;
-              });
+            // Check observations array or nested structure
+            const observations = trace.observations || trace.children || [];
+            observations.forEach(obs => {
+              const model = obs.model || obs.modelName || trace.model || 'unknown';
+              modelUsage[model] = (modelUsage[model] || 0) + 1;
+            });
+            // Also check trace-level model
+            if (trace.model && !observations.length) {
+              modelUsage[trace.model] = (modelUsage[trace.model] || 0) + 1;
             }
           });
 
           const userActivity = {};
           traceData.forEach(trace => {
-            const userId = trace.userId || 'anonymous';
+            const userId = trace.userId || trace.user_id || 'anonymous';
             userActivity[userId] = (userActivity[userId] || 0) + 1;
           });
 
           const sessionActivity = {};
           traceData.forEach(trace => {
-            if (trace.sessionId) {
-              sessionActivity[trace.sessionId] = (sessionActivity[trace.sessionId] || 0) + 1;
+            const sessionId = trace.sessionId || trace.session_id;
+            if (sessionId) {
+              sessionActivity[sessionId] = (sessionActivity[sessionId] || 0) + 1;
             }
           });
 
-          const errorTraces = traceData.filter(t => t.level === 'ERROR').length;
+          const errorTraces = traceData.filter(t => 
+            t.level === 'ERROR' || t.status === 'ERROR' || t.statusMessage?.toLowerCase().includes('error')
+          ).length;
           const successRate = totalTraces > 0
             ? (((totalTraces - errorTraces) / totalTraces) * 100)
             : 100;
 
           const tracesByHour = {};
           traceData.forEach(trace => {
-            const hour = new Date(trace.timestamp).getHours();
-            tracesByHour[hour] = (tracesByHour[hour] || 0) + 1;
+            const timestamp = trace.timestamp || trace.createdAt || trace.startTime;
+            if (timestamp) {
+              const hour = new Date(timestamp).getHours();
+              tracesByHour[hour] = (tracesByHour[hour] || 0) + 1;
+            }
           });
 
           const recentTraces = traceData.slice(0, 10).map(trace => ({
             id: trace.id,
-            name: trace.name,
-            userId: trace.userId,
-            timestamp: trace.timestamp,
-            latency: trace.latency || 0,
-            level: trace.level || 'DEFAULT',
-            statusMessage: trace.statusMessage || 'Success',
-            tokensUsed: (trace.inputUsage || 0) + (trace.outputUsage || 0),
-            cost: trace.calculatedTotalCost || 0,
+            name: trace.name || 'agent-query',
+            userId: trace.userId || trace.user_id || '-',
+            timestamp: trace.timestamp || trace.createdAt || trace.startTime || new Date().toISOString(),
+            latency: trace.latency || trace.duration || 
+                    (trace.endTime && trace.startTime ? new Date(trace.endTime) - new Date(trace.startTime) : 0),
+            level: trace.level || trace.status || 'DEFAULT',
+            statusMessage: trace.statusMessage || trace.status || 'Success',
+            tokensUsed: (trace.inputUsage || trace.inputTokens || 0) + (trace.outputUsage || trace.outputTokens || 0),
+            cost: trace.calculatedTotalCost || trace.totalCost || 0,
           }));
 
           langfuseData = {

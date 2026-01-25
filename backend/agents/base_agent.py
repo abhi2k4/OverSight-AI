@@ -13,6 +13,7 @@ from langchain_core.runnables import Runnable
 
 from backend.api.config import settings, AGENT_PROMPTS
 from backend.agents.tools import TOOL_GROUPS
+from backend.services.policy_service import build_governance_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,11 @@ class BaseAgent:
         self.tools = tools or TOOL_GROUPS.get(agent_type, [])
         
         # Get specialization prompt - use provided one or get from config
-        self.system_prompt = system_prompt or AGENT_PROMPTS.get(agent_type, "You are a helpful AI assistant.")
+        base_system_prompt = system_prompt or AGENT_PROMPTS.get(agent_type, "You are a helpful AI assistant.")
+        
+        # Inject governance policies and compliances into system prompt
+        governance_prompt = build_governance_prompt()
+        self.system_prompt = base_system_prompt + governance_prompt
         
         # Create agent
         self.agent = self._create_agent()
@@ -75,7 +80,8 @@ class BaseAgent:
         self,
         query: str,
         chat_history: Optional[List] = None,
-        session_id: Optional[str] = None
+        session_id: Optional[str] = None,
+        langfuse_trace: Optional[Any] = None
     ) -> Dict[str, Any]:
         """
         Process a user query and return the response
@@ -110,11 +116,39 @@ class BaseAgent:
             # Add current query
             messages.append(HumanMessage(content=query))
             
+            # Create Langfuse generation span for LLM call
+            generation = None
+            if langfuse_trace:
+                try:
+                    generation = langfuse_trace.generation(
+                        name="agent-invoke",
+                        model=self.llm_config.get("model", "unknown"),
+                        input=query,
+                        metadata={
+                            "agent_name": self.name,
+                            "agent_type": self.agent_type,
+                            "chat_history_length": len(chat_history) if chat_history else 0,
+                        },
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to create Langfuse generation: {e}")
+            
             # Invoke agent with messages format (create_agent API)
             try:
                 result = await self.agent.ainvoke({"messages": messages})
             except Exception as e:
                 logger.error(f"Error invoking agent: {e}")
+                
+                # Log error to Langfuse
+                if generation:
+                    try:
+                        generation.end(
+                            level="ERROR",
+                            status_message=str(e),
+                        )
+                    except:
+                        pass
+                
                 return {
                     "success": False,
                     "error": str(e),
@@ -166,6 +200,25 @@ class BaseAgent:
             
             end_time = datetime.now()
             execution_time = (end_time - start_time).total_seconds() * 1000
+            
+            # End Langfuse generation with output
+            if generation:
+                try:
+                    # Estimate token usage (rough: 1 token ≈ 4 characters)
+                    input_tokens = len(query) // 4
+                    output_tokens = len(response) // 4
+                    
+                    generation.end(
+                        output=response,
+                        usage={
+                            "input": input_tokens,
+                            "output": output_tokens,
+                            "total": input_tokens + output_tokens,
+                        },
+                        latency=execution_time,
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to end Langfuse generation: {e}")
             
             return {
                 "success": True,

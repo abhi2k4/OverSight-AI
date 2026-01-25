@@ -6,6 +6,7 @@ import {
   IconX,
   IconCheck,
   IconAlertCircle,
+  IconLoader,
 } from '@tabler/icons-react';
 import { Button } from '../components/ui/button';
 import {
@@ -125,12 +126,11 @@ Key Requirements:
   },
 ];
 
-const STORAGE_KEY = 'compliance_manager_data';
-
 export default function ComplianceManager() {
-  const [compliances, setCompliances] = useState(defaultCompliances);
-  const [selectedCompliance, setSelectedCompliance] = useState(defaultCompliances[0]);
+  const [compliances, setCompliances] = useState([]);
+  const [selectedCompliance, setSelectedCompliance] = useState(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [newCompliance, setNewCompliance] = useState({
     name: '',
     fullName: '',
@@ -140,54 +140,109 @@ export default function ComplianceManager() {
     region: '',
   });
 
-  // Load from localStorage on mount
+  // Fetch compliances from backend API on mount
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored);
-        setCompliances(parsed);
-        if (parsed.length > 0) {
-          setSelectedCompliance(parsed[0]);
-        }
-      } catch (error) {
-        console.error('Error loading compliances from localStorage:', error);
-      }
-    }
+    fetchCompliances();
   }, []);
 
-  // Save to localStorage whenever compliances change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(compliances));
-  }, [compliances]);
+  const fetchCompliances = async () => {
+    setIsLoading(true);
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${apiBase}/compliances`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch compliances: ${response.status}`);
+      }
 
-  const handleCreateCompliance = () => {
+      const data = await response.json();
+      
+      // Transform backend format to frontend format
+      const transformedCompliances = data.map(compliance => ({
+        id: compliance.id,
+        name: compliance.name,
+        fullName: compliance.full_name,
+        description: compliance.description,
+        details: compliance.details || compliance.description,
+        category: compliance.category || 'Custom',
+        region: compliance.region || 'Global',
+        lastUpdated: compliance.updated_at || compliance.created_at
+      }));
+      
+      setCompliances(transformedCompliances);
+      if (transformedCompliances.length > 0) {
+        setSelectedCompliance(transformedCompliances[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching compliances:', error);
+      // Fallback to default compliances
+      setCompliances(defaultCompliances);
+      if (defaultCompliances.length > 0) {
+        setSelectedCompliance(defaultCompliances[0]);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateCompliance = async () => {
     if (!newCompliance.name || !newCompliance.fullName || !newCompliance.description) {
       return;
     }
 
-    const compliance = {
-      id: `custom-${Date.now()}`,
-      name: newCompliance.name,
-      fullName: newCompliance.fullName,
-      description: newCompliance.description,
-      details: newCompliance.details || newCompliance.description,
-      category: newCompliance.category || 'Custom',
-      region: newCompliance.region || 'Global',
-      lastUpdated: new Date().toISOString().split('T')[0],
-    };
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${apiBase}/compliances`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newCompliance.name,
+          full_name: newCompliance.fullName,
+          description: newCompliance.description,
+          details: newCompliance.details || newCompliance.description,
+          category: newCompliance.category || 'Custom',
+          region: newCompliance.region || 'Global',
+        }),
+      });
 
-    setCompliances([...compliances, compliance]);
-    setSelectedCompliance(compliance);
-    setNewCompliance({
-      name: '',
-      fullName: '',
-      description: '',
-      details: '',
-      category: '',
-      region: '',
-    });
-    setIsCreateDialogOpen(false);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+
+      const compliance = await response.json();
+      
+      // Transform to frontend format
+      const transformedCompliance = {
+        id: compliance.id,
+        name: compliance.name,
+        fullName: compliance.full_name,
+        description: compliance.description,
+        details: compliance.details || compliance.description,
+        category: compliance.category || 'Custom',
+        region: compliance.region || 'Global',
+        lastUpdated: compliance.updated_at || compliance.created_at
+      };
+
+      // Refresh compliances list
+      await fetchCompliances();
+      setSelectedCompliance(transformedCompliance);
+      
+      setNewCompliance({
+        name: '',
+        fullName: '',
+        description: '',
+        details: '',
+        category: '',
+        region: '',
+      });
+      setIsCreateDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating compliance:', error);
+      alert(`Failed to create compliance: ${error.message}`);
+    }
   };
 
   const getCategoryColor = (category) => {
@@ -291,10 +346,16 @@ export default function ComplianceManager() {
 
         {/* Right Panel - Compliance Details */}
         <div className="flex-1 overflow-y-auto bg-slate-50">
-          {selectedCompliance ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <IconLoader size={48} className="text-slate-300 mx-auto mb-4 animate-spin" />
+                <p className="text-slate-500">Loading compliances...</p>
+              </div>
+            </div>
+          ) : selectedCompliance ? (
             <div className="p-8 max-w-4xl">
               <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-                {/* Header */}
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-start gap-4">
                     <div className="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -325,7 +386,6 @@ export default function ComplianceManager() {
                   </div>
                 </div>
 
-                {/* Description */}
                 <div className="mb-6">
                   <h3 className="text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
                     Overview
@@ -333,7 +393,6 @@ export default function ComplianceManager() {
                   <p className="text-slate-700 leading-relaxed">{selectedCompliance.description}</p>
                 </div>
 
-                {/* Details */}
                 <div className="border-t border-slate-200 pt-6">
                   <h3 className="text-sm font-semibold text-slate-700 mb-4 uppercase tracking-wide">
                     Key Requirements & Details
@@ -345,7 +404,6 @@ export default function ComplianceManager() {
                   </div>
                 </div>
 
-                {/* Action Buttons */}
                 <div className="mt-8 pt-6 border-t border-slate-200 flex items-center gap-3">
                   <Button variant="outline" className="border-slate-300">
                     <IconFileText size={18} />
@@ -362,7 +420,7 @@ export default function ComplianceManager() {
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
                 <IconShieldCheck size={48} className="text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-500">Select a compliance to view details</p>
+                <p className="text-slate-500">No compliances available</p>
               </div>
             </div>
           )}

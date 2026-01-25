@@ -19,7 +19,7 @@ import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 
-const API_BASE = '/api'; // Proxied through Vite
+const API_BASE = '/api';
 
 export default function ChatbotMonitor() {
   const [metrics, setMetrics] = useState(null);
@@ -36,7 +36,7 @@ export default function ChatbotMonitor() {
   useEffect(() => {
     checkHealth();
     fetchMetrics();
-    const interval = setInterval(fetchMetrics, 10000); // Refresh every 10 seconds
+    const interval = setInterval(fetchMetrics, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -85,7 +85,6 @@ export default function ChatbotMonitor() {
       setLoading(false);
       
       if (metrics === null) {
-        // Only show error toast on first load failure
         toast({
           variant: 'destructive',
           title: 'Metrics Unavailable',
@@ -131,14 +130,6 @@ export default function ChatbotMonitor() {
         timestamp: new Date()
       }]);
 
-      // Show success toast
-      toast({
-        variant: 'success',
-        title: 'Response Received',
-        description: `Used ${data.metadata.tokens} tokens in ${data.metadata.latency}ms`,
-      });
-
-      // Refresh metrics after chat
       fetchMetrics();
     } catch (error) {
       console.error('Chat error:', error);
@@ -151,12 +142,6 @@ export default function ChatbotMonitor() {
         timestamp: new Date()
       }]);
 
-      // Show detailed error toast
-      toast({
-        variant: 'destructive',
-        title: 'Chat Error',
-        description: errorMessage,
-      });
     } finally {
       setChatLoading(false);
     }
@@ -167,7 +152,7 @@ export default function ChatbotMonitor() {
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#1E40AF] mx-auto mb-4"></div>
-          <p className="text-slate-600">Loading chatbot metrics...</p>
+          <p className="text-slate-600">Loading...</p>
         </div>
       </div>
     );
@@ -176,17 +161,13 @@ export default function ChatbotMonitor() {
   const { overview, hourlyActivity, activeConversations, langfuse } = metrics || {};
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Page Header */}
+      <div className="h-full flex flex-col">
       <div className="bg-white border-b border-slate-200 px-8 py-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-slate-900 mb-2">
-              AI Chatbot Monitor & LangFuse Metrics
+            <h1 className="text-2xl font-semibold text-slate-900">
+              AI Governance
             </h1>
-            <p className="text-slate-600">
-              Real-time observability and tracing for AI governance chatbot
-            </p>
             {healthStatus && (
               <div className="flex items-center gap-4 mt-2 text-sm">
                 <span className={`flex items-center gap-1 ${healthStatus.groq.connected ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -202,10 +183,6 @@ export default function ChatbotMonitor() {
             onClick={() => {
               fetchMetrics();
               checkHealth();
-              toast({
-                title: 'Refreshing...',
-                description: 'Updating metrics and health status',
-              });
             }}
             className="flex items-center gap-2 px-4 py-2 bg-[#1E40AF] text-white rounded-lg hover:bg-[#1e3a8a] transition-colors"
           >
@@ -217,14 +194,12 @@ export default function ChatbotMonitor() {
 
       <div className="flex-1 overflow-y-auto bg-slate-50">
         <div className="p-8 space-y-6">
-          {/* Error/Warning Alerts */}
           {errorAlert && (
             <Alert variant={errorAlert.variant} onClose={() => setErrorAlert(null)}>
               <AlertTitle>{errorAlert.title}</AlertTitle>
               <AlertDescription>{errorAlert.description}</AlertDescription>
             </Alert>
           )}
-          {/* Tabs */}
           <div className="flex gap-2 border-b border-slate-200">
             <button
               onClick={() => setActiveTab('overview')}
@@ -258,10 +233,8 @@ export default function ChatbotMonitor() {
             </button>
           </div>
 
-          {/* Overview Tab */}
           {activeTab === 'overview' && (
             <>
-          {/* Metrics Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-2">
@@ -309,7 +282,7 @@ export default function ChatbotMonitor() {
               <p className="text-3xl font-bold text-slate-900">
                 {overview?.averageLatency || 0}ms
               </p>
-              <p className="text-xs text-slate-500 mt-2">Response time</p>
+              <p className="text-xs text-slate-500 mt-2">Avg response time</p>
             </Card>
 
             <Card className="p-6">
@@ -324,13 +297,11 @@ export default function ChatbotMonitor() {
               <p className="text-3xl font-bold text-slate-900">
                 {overview?.errorCount || 0}
               </p>
-              <p className="text-xs text-slate-500 mt-2">Failed requests</p>
+              <p className="text-xs text-slate-500 mt-2">Errors</p>
             </Card>
           </div>
 
-          {/* Two Column Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Live Chat Interface */}
             <Card className="flex flex-col h-[600px]">
               <div className="p-6 border-b border-slate-200">
                 <div className="flex items-center gap-3">
@@ -341,18 +312,16 @@ export default function ChatbotMonitor() {
                     <h3 className="text-lg font-semibold text-slate-900">
                       AI Governance Assistant
                     </h3>
-                    <p className="text-sm text-slate-600">Powered by GROQ</p>
                   </div>
                 </div>
               </div>
 
-              {/* Messages */}
               <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50">
                 {messages.length === 0 ? (
                   <div className="text-center text-slate-500 mt-12">
                     <IconRobot size={48} className="mx-auto mb-4 text-slate-400" />
                     <p className="text-sm">
-                      Ask me about AI governance, compliance, or data privacy!
+                      Ask about AI governance, compliance, or data privacy
                     </p>
                   </div>
                 ) : (
@@ -403,14 +372,13 @@ export default function ChatbotMonitor() {
                 )}
               </div>
 
-              {/* Input */}
               <div className="border-t border-slate-200 p-4">
                 <div className="flex gap-2">
                   <input
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && !chatLoading && sendMessage()}
-                    placeholder="Ask about AI governance policies..."
+                    placeholder="Ask about AI governance..."
                     disabled={chatLoading}
                     className="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1E40AF] focus:border-transparent"
                   />
@@ -425,9 +393,7 @@ export default function ChatbotMonitor() {
               </div>
             </Card>
 
-            {/* Hourly Activity & Info */}
             <div className="space-y-6">
-              {/* Hourly Activity */}
               <Card className="p-6">
                 <h3 className="text-lg font-semibold text-slate-900 mb-4">
                   Hourly Activity
@@ -458,56 +424,12 @@ export default function ChatbotMonitor() {
                     })
                   ) : (
                     <p className="text-sm text-slate-500 text-center py-8">
-                      No activity data yet. Start chatting to see hourly trends!
+                      No activity data yet
                     </p>
                   )}
                 </div>
               </Card>
 
-              {/* LangFuse Integration Info */}
-              <Card className="p-6 bg-gradient-to-br from-blue-50 to-purple-50 border-blue-200">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
-                    <IconTrendingUp size={24} className="text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                      LangFuse Integration
-                    </h3>
-                    <p className="text-sm text-slate-700 mb-3">
-                      All chat interactions are traced and logged to LangFuse for comprehensive observability.
-                    </p>
-                    <div className="space-y-2 text-sm text-slate-700">
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-600">✓</span>
-                        <span>Request/Response tracing</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-600">✓</span>
-                        <span>Token usage & cost tracking</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-600">✓</span>
-                        <span>Latency monitoring</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-green-600">✓</span>
-                        <span>Session management</span>
-                      </div>
-                    </div>
-                    <a
-                      href="https://cloud.langfuse.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-block mt-4 text-sm font-medium text-blue-600 hover:text-blue-700"
-                    >
-                      View in LangFuse Dashboard →
-                    </a>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Active Stats */}
               <Card className="p-6">
                 <h3 className="text-lg font-semibold text-slate-900 mb-4">
                   Active Statistics
@@ -529,34 +451,11 @@ export default function ChatbotMonitor() {
             </div>
           </div>
 
-          {/* Setup Instructions */}
-          {overview?.totalRequests === 0 && (
-            <Card className="p-6 bg-amber-50 border-amber-200">
-              <h3 className="text-lg font-semibold text-amber-900 mb-3">
-                🚀 Quick Setup Required
-              </h3>
-              <div className="space-y-2 text-sm text-amber-800">
-                <p>To start using the chatbot, follow these steps:</p>
-                <ol className="list-decimal list-inside space-y-1 ml-2">
-                  <li>Navigate to the <code className="bg-amber-100 px-2 py-0.5 rounded">chatbot/</code> directory</li>
-                  <li>Run <code className="bg-amber-100 px-2 py-0.5 rounded">npm install</code></li>
-                  <li>Create <code className="bg-amber-100 px-2 py-0.5 rounded">.env</code> file with your OpenAI and LangFuse keys</li>
-                  <li>Start the server with <code className="bg-amber-100 px-2 py-0.5 rounded">npm start</code></li>
-                  <li>Come back here and start chatting!</li>
-                </ol>
-                <p className="mt-3">
-                  See <code className="bg-amber-100 px-2 py-0.5 rounded">chatbot/README.md</code> for detailed instructions.
-                </p>
-              </div>
-            </Card>
-          )}
             </>
           )}
 
-          {/* LangFuse Analytics Tab */}
           {activeTab === 'langfuse' && (
             <>
-              {/* LangFuse Metrics Overview */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="p-6">
                   <div className="flex items-center gap-3 mb-2">
@@ -570,7 +469,7 @@ export default function ChatbotMonitor() {
                   <p className="text-3xl font-bold text-slate-900">
                     {langfuse?.totalTraces || 0}
                   </p>
-                  <p className="text-xs text-slate-500 mt-2">From LangFuse Cloud</p>
+                  <p className="text-xs text-slate-500 mt-2">Total traces</p>
                 </Card>
 
                 <Card className="p-6">
@@ -602,7 +501,7 @@ export default function ChatbotMonitor() {
                   <p className="text-3xl font-bold text-slate-900">
                     {langfuse?.avgLatency || 0}ms
                   </p>
-                  <p className="text-xs text-slate-500 mt-2">From actual traces</p>
+                  <p className="text-xs text-slate-500 mt-2">Average latency</p>
                 </Card>
 
                 <Card className="p-6">
@@ -617,13 +516,11 @@ export default function ChatbotMonitor() {
                   <p className="text-3xl font-bold text-slate-900">
                     ${langfuse?.totalCost?.toFixed(4) || '0.0000'}
                   </p>
-                  <p className="text-xs text-slate-500 mt-2">Aggregated from traces</p>
+                  <p className="text-xs text-slate-500 mt-2">Total cost</p>
                 </Card>
               </div>
 
-              {/* Model Usage & User Activity */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Model Usage Distribution */}
                 <Card className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-slate-900">Model Usage Distribution</h3>
@@ -658,7 +555,6 @@ export default function ChatbotMonitor() {
                   </div>
                 </Card>
 
-                {/* User Activity */}
                 <Card className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-slate-900">User Activity</h3>
@@ -699,9 +595,7 @@ export default function ChatbotMonitor() {
                 </Card>
               </div>
 
-              {/* Session Activity & Hourly Traces */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Session Activity */}
                 <Card className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-slate-900">Session Activity</h3>
@@ -739,7 +633,6 @@ export default function ChatbotMonitor() {
                   </div>
                 </Card>
 
-                {/* Traces by Hour */}
                 <Card className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-slate-900">Traces by Hour</h3>
@@ -780,13 +673,11 @@ export default function ChatbotMonitor() {
             </>
           )}
 
-          {/* Recent Traces Tab */}
           {activeTab === 'traces' && (
             <>
               <Card className="overflow-hidden">
                 <div className="p-6 border-b border-slate-200">
                   <h3 className="text-lg font-semibold text-slate-900">Recent Traces</h3>
-                  <p className="text-sm text-slate-600 mt-1">Latest 10 traces from LangFuse Cloud</p>
                 </div>
                 <div className="overflow-x-auto">
                   {langfuse?.recentTraces && langfuse.recentTraces.length > 0 ? (
@@ -857,7 +748,6 @@ export default function ChatbotMonitor() {
                     <div className="p-12 text-center">
                       <IconDatabase size={48} className="mx-auto text-slate-300 mb-4" />
                       <p className="text-slate-500">No recent traces available</p>
-                      <p className="text-sm text-slate-400 mt-2">Start chatting to generate traces</p>
                     </div>
                   )}
                 </div>

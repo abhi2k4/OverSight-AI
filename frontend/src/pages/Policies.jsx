@@ -21,7 +21,6 @@ import {
 import { Input } from '../components/ui/input'
 import { useToast } from '../hooks/use-toast'
 
-const STORAGE_KEY = 'policies_data'
 
 // Helper function to get a date in the past
 const getPastDate = (daysAgo) => {
@@ -85,7 +84,7 @@ const defaultPolicies = [
 ]
 
 export default function Policies() {
-  const [policies, setPolicies] = useState(defaultPolicies)
+  const [policies, setPolicies] = useState([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [description, setDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -133,27 +132,58 @@ export default function Policies() {
     })
   }
 
-  // Load from localStorage on mount
+  // Fetch policies from backend API on mount
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      try {
-        const parsed = JSON.parse(stored)
-        // Clean up the data (fix dates, ensure variety)
-        const cleaned = cleanupPolicyData(parsed)
-        setPolicies(cleaned)
-        // Save cleaned data back
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned))
-      } catch (error) {
-        console.error('Error loading policies from localStorage:', error)
-      }
-    }
+    fetchPolicies()
   }, [])
 
-  // Save to localStorage whenever policies change
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(policies))
-  }, [policies])
+  const fetchPolicies = async () => {
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+      const response = await fetch(`${apiBase}/policies`)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch policies: ${response.status}`)
+      }
+
+      const data = await response.json()
+      
+      // Fetch violation counts for each policy
+      const violationsResponse = await fetch(`${apiBase}/violations?limit=1000`).catch(() => null)
+      let violationsByPolicy = {}
+      if (violationsResponse?.ok) {
+        const violations = await violationsResponse.json()
+        violations.forEach(v => {
+          if (v.policy_id) {
+            violationsByPolicy[v.policy_id] = (violationsByPolicy[v.policy_id] || 0) + 1
+          }
+        })
+      }
+      
+      // Transform backend format to frontend format
+      const transformedPolicies = data.map(policy => ({
+        id: policy.id,
+        name: policy.name,
+        category: policy.category,
+        status: policy.status,
+        violations: violationsByPolicy[policy.id] || 0,
+        lastUpdated: policy.updated_at || policy.created_at,
+        severity: policy.severity,
+        description: policy.description
+      }))
+      
+      setPolicies(transformedPolicies)
+    } catch (error) {
+      console.error('Error fetching policies:', error)
+      toast({
+        variant: 'destructive',
+        title: 'Failed to Load Policies',
+        description: 'Could not fetch policies from server. Using default data.',
+      })
+      // Fallback to default policies
+      setPolicies(defaultPolicies)
+    }
+  }
 
   const getSeverityColor = (severity) => {
     const colors = {
@@ -179,7 +209,8 @@ export default function Policies() {
     try {
       const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
 
-      const response = await fetch(`${apiBase}/policies/create`, {
+      // First, use AI to generate policy metadata
+      const createResponse = await fetch(`${apiBase}/policies/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,49 +218,37 @@ export default function Policies() {
         body: JSON.stringify({ description: description.trim() }),
       })
 
+      if (!createResponse.ok) {
+        const errorData = await createResponse.json().catch(() => ({ detail: 'Unknown error' }))
+        throw new Error(errorData.detail || `HTTP ${createResponse.status}`)
+      }
+
+      const aiData = await createResponse.json()
+
+      // Then create the policy in backend database
+      const response = await fetch(`${apiBase}/policies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: aiData.policy_name,
+          description: description.trim(),
+          category: aiData.category,
+          severity: aiData.severity,
+          status: 'active'
+        }),
+      })
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
         throw new Error(errorData.detail || `HTTP ${response.status}`)
       }
 
-      const data = await response.json()
+      const newPolicy = await response.json()
 
-      // Ensure unique appliedTo value (avoid duplicates)
-      const existingAppliedToValues = policies.map((p) => p.appliedTo)
-      let appliedTo = data.applied_to
-      
-      // If duplicate, add some variation
-      if (existingAppliedToValues.includes(appliedTo)) {
-        const variation = Math.floor(Math.random() * 10) - 5 // -5 to +5
-        appliedTo = Math.max(20, Math.min(75, appliedTo + variation))
-        // If still duplicate, try a different range
-        if (existingAppliedToValues.includes(appliedTo)) {
-          appliedTo = 30 + Math.floor(Math.random() * 40) // 30-70 range
-        }
-      }
-
-      // Ensure date is not in the future
-      const today = new Date()
-      const todayStr = today.toISOString().split('T')[0]
-      let lastUpdated = data.last_updated || todayStr
-      
-      // If date is in the future, use today
-      if (new Date(lastUpdated) > today) {
-        lastUpdated = todayStr
-      }
-
-      const newPolicy = {
-        id: Date.now(),
-        name: data.policy_name,
-        category: data.category,
-        status: data.status,
-        appliedTo: appliedTo,
-        violations: data.violations,
-        lastUpdated: lastUpdated,
-        severity: data.severity,
-      }
-
-      setPolicies([...policies, newPolicy])
+      // Refresh policies list
+      await fetchPolicies()
 
       setDescription('')
       setIsDialogOpen(false)
@@ -237,7 +256,7 @@ export default function Policies() {
       toast({
         variant: 'default',
         title: 'Policy Created',
-        description: `Successfully created "${data.policy_name}"`,
+        description: `Successfully created "${newPolicy.name}"`,
       })
     } catch (error) {
       console.error('Error creating policy:', error)
@@ -285,18 +304,6 @@ export default function Policies() {
           >
             {row.severity}
           </span>
-        </div>
-      ),
-    },
-    {
-      header: 'Applied To',
-      accessor: 'appliedTo',
-      width: '140px',
-      nowrap: false,
-      render: (row) => (
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold text-slate-900">{row.appliedTo}</span>
-          <span className="text-xs text-slate-500">agents</span>
         </div>
       ),
     },
@@ -417,7 +424,7 @@ export default function Policies() {
             </div>
             <p className="text-sm font-medium text-slate-600 mb-1">Total Violations</p>
             <p className="text-3xl font-bold text-slate-900">
-              {policies.reduce((sum, p) => sum + p.violations, 0)}
+              {policies.reduce((sum, p) => sum + (p.violations || 0), 0)}
             </p>
             <p className="text-xs text-slate-500 mt-2">Require attention</p>
           </div>
@@ -450,7 +457,7 @@ export default function Policies() {
               <p className="text-xs text-blue-700 mt-2">
                 {policies
                   .filter((p) => p.category === 'Privacy')
-                  .reduce((sum, p) => sum + p.violations, 0)}{' '}
+                  .reduce((sum, p) => sum + (p.violations || 0), 0)}{' '}
                 violations
               </p>
             </div>
@@ -462,7 +469,7 @@ export default function Policies() {
               <p className="text-xs text-red-700 mt-2">
                 {policies
                   .filter((p) => p.category === 'Security')
-                  .reduce((sum, p) => sum + p.violations, 0)}{' '}
+                  .reduce((sum, p) => sum + (p.violations || 0), 0)}{' '}
                 violations
               </p>
             </div>
@@ -474,7 +481,7 @@ export default function Policies() {
               <p className="text-xs text-amber-700 mt-2">
                 {policies
                   .filter((p) => p.category === 'Performance')
-                  .reduce((sum, p) => sum + p.violations, 0)}{' '}
+                  .reduce((sum, p) => sum + (p.violations || 0), 0)}{' '}
                 violations
               </p>
             </div>
@@ -486,7 +493,7 @@ export default function Policies() {
               <p className="text-xs text-emerald-700 mt-2">
                 {policies
                   .filter((p) => p.category === 'Quality')
-                  .reduce((sum, p) => sum + p.violations, 0)}{' '}
+                  .reduce((sum, p) => sum + (p.violations || 0), 0)}{' '}
                 violations
               </p>
             </div>

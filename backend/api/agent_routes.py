@@ -2,6 +2,7 @@
 API routes for agent management and interaction
 """
 import logging
+import os
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -29,8 +30,26 @@ from backend.api.agent_schemas import (
 from backend.agents.supervisor_agent import get_supervisor_agent
 from backend.agents.specialized_agents import get_agent_by_type
 from backend.api.config import AGENT_PROMPTS
+from backend.services.violation_detector import detect_violations
+from backend.models import Violation
 
 logger = logging.getLogger(__name__)
+
+# Initialize Langfuse if available
+langfuse = None
+try:
+    from langfuse import Langfuse
+    if os.getenv("LANGFUSE_SECRET_KEY") and os.getenv("LANGFUSE_PUBLIC_KEY"):
+        langfuse = Langfuse(
+            secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+            public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+            host=os.getenv("LANGFUSE_BASE_URL", "http://localhost:3000"),
+        )
+        logger.info("✅ Langfuse initialized for agent tracing")
+except ImportError:
+    logger.warning("⚠️ Langfuse not installed. Install with: pip install langfuse")
+except Exception as e:
+    logger.warning(f"⚠️ Langfuse initialization failed: {e}")
 
 router = APIRouter(prefix="/agents", tags=["agents"])
 
@@ -258,12 +277,88 @@ async def query_agent(
                 elif msg.role == MessageRole.ASSISTANT:
                     chat_history.append(("assistant", msg.content))
         
+        # Create Langfuse trace for this query
+        trace = None
+        if langfuse:
+            try:
+                trace = langfuse.trace(
+                    name=f"agent-query-{agent.agent_type}",
+                    user_id=request.user_id or "anonymous",
+                    session_id=session_id,
+                    metadata={
+                        "agent_id": agent_id,
+                        "agent_name": agent.name,
+                        "agent_type": agent.agent_type,
+                        "query_length": len(request.query),
+                        "has_history": len(chat_history) > 0,
+                    },
+                )
+            except Exception as e:
+                logger.warning(f"Failed to create Langfuse trace: {e}")
+        
         # Process query
         result = await agent.process_query(
             query=request.query,
             chat_history=chat_history,
-            session_id=session_id
+            session_id=session_id,
+            langfuse_trace=trace  # Pass trace to agent for nested spans
         )
+        
+        # Detect violations (async, non-blocking)
+        violations_detected = []
+        if result.get("success") and result.get("response"):
+            try:
+                trace_id = trace.id if trace else None
+                violations_detected = await detect_violations(
+                    query=request.query,
+                    response=result.get("response", ""),
+                    agent_id=agent_id,
+                    agent_name=agent.name,
+                    db=db,
+                    langfuse_trace_id=trace_id
+                )
+                
+                # Store violations in database
+                for violation_data in violations_detected:
+                    violation = Violation(**violation_data)
+                    db.add(violation)
+                db.commit()
+                
+                logger.info(f"Detected {len(violations_detected)} violations for agent {agent.name}")
+            except Exception as e:
+                logger.error(f"Error detecting violations: {e}")
+                db.rollback()
+        
+        # Update trace with result metadata and violations
+        if trace:
+            try:
+                violations_metadata = []
+                for v in violations_detected:
+                    violations_metadata.append({
+                        "policy_id": v.get("policy_id"),
+                        "compliance_id": v.get("compliance_id"),
+                        "violation_type": v.get("violation_type"),
+                        "severity": v.get("severity"),
+                        "description": v.get("description")[:200]  # Truncate for metadata
+                    })
+                
+                trace.update(
+                    metadata={
+                        **trace.metadata,
+                        "success": result.get("success", False),
+                        "execution_time_ms": result.get("execution_time_ms", 0),
+                        "tool_calls_count": len(result.get("tool_calls", [])),
+                        "violations": violations_metadata,
+                        "violations_count": len(violations_detected),
+                    },
+                    level="ERROR" if not result.get("success", True) or len(violations_detected) > 0 else "DEFAULT",
+                    status_message=result.get("error") if not result.get("success", True) else (
+                        f"{len(violations_detected)} violations detected" if violations_detected else "Success"
+                    ),
+                )
+                langfuse.flush()
+            except Exception as e:
+                logger.warning(f"Failed to update Langfuse trace: {e}")
         
         # Create or get conversation for logging
         if not conversation_id:

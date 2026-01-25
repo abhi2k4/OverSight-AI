@@ -25,3 +25,6 @@ acryl-datahub[datahub-rest]
 aiohttp
 websockets
 redis
+
+# Langfuse for LLM observability
+langfuse

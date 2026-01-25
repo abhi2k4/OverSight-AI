@@ -26,5 +26,8 @@ def get_db():
 
 def init_db():
     # Import all models here to ensure they are registered with Base metadata
-    from backend.models import UnifiedRecord
+    from backend.models import (
+        UnifiedRecord, EnrichedRecord, Agent, AgentConversation,
+        AgentMessage, AgentToolExecution, Policy, Compliance, Violation
+    )
     Base.metadata.create_all(bind=engine)

@@ -1,67 +1,97 @@
 import { create } from 'zustand'
 
-export const useAlertsStore = create((set) => ({
-  alerts: [
-    {
-      id: 1,
-      severity: 'critical',
-      title: 'Unauthorized Data Access Detected',
-      description: 'CustomerServiceBot attempted to access restricted PII database',
-      agent: 'CustomerServiceBot',
-      policy: 'Data Privacy Policy v2.1',
-      timestamp: '2026-01-23T09:45:00Z',
-      status: 'active',
-      impact: 'High - Potential PII exposure',
-    },
-    {
-      id: 2,
-      severity: 'warning',
-      title: 'Rate Limit Threshold Exceeded',
-      description: 'AnalyticsAgent exceeded maximum query rate of 1000 req/min',
-      agent: 'AnalyticsAgent',
-      policy: 'Resource Usage Policy',
-      timestamp: '2026-01-23T08:30:00Z',
-      status: 'active',
-      impact: 'Medium - Performance degradation',
-    },
-    {
-      id: 3,
-      severity: 'critical',
-      title: 'PII Exposure Risk',
-      description: 'DataProcessorBot logging contains unmasked sensitive data',
-      agent: 'DataProcessorBot',
-      policy: 'PII Protection Policy',
-      timestamp: '2026-01-23T07:15:00Z',
-      status: 'investigating',
-      impact: 'Critical - Compliance violation',
-    },
-    {
-      id: 4,
-      severity: 'warning',
-      title: 'Model Drift Detected',
-      description: 'RecommendationEngine performance degraded by 15%',
-      agent: 'RecommendationEngine',
-      policy: 'Model Quality Standards',
-      timestamp: '2026-01-22T18:20:00Z',
-      status: 'resolved',
-      impact: 'Medium - User experience affected',
-    },
-    {
-      id: 5,
-      severity: 'info',
-      title: 'Policy Update Required',
-      description: 'SecurityGuardBot requires policy refresh after system update',
-      agent: 'SecurityGuardBot',
-      policy: 'Security Protocols v3.0',
-      timestamp: '2026-01-22T14:10:00Z',
-      status: 'acknowledged',
-      impact: 'Low - Administrative task',
-    },
-  ],
-
+export const useAlertsStore = create((set, get) => ({
+  alerts: [],
+  isLoading: false,
   filterSeverity: 'all',
   filterStatus: 'all',
   selectedAlert: null,
+
+  fetchAlerts: async () => {
+    set({ isLoading: true });
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+      const response = await fetch(`${apiBase}/violations?limit=100`);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch violations: ${response.status}`);
+      }
+
+      const violations = await response.json();
+      
+      // Transform violations to alert format
+      const transformedAlerts = violations.map(violation => {
+        // Use policy/compliance names from backend response
+        const policyName = violation.policy_name || (violation.policy_id ? `Policy #${violation.policy_id}` : '');
+        const complianceName = violation.compliance_name || (violation.compliance_id ? violation.compliance_id.toUpperCase() : '');
+        const policyOrCompliance = policyName || complianceName || 'Unknown';
+        
+        // Build title based on violation type
+        let title = 'Policy Violation';
+        if (violation.violation_type === 'compliance') {
+          title = 'Compliance Violation';
+        } else if (violation.violation_type === 'policy') {
+          title = policyName || 'Policy Violation';
+        }
+        
+        return {
+          id: violation.id,
+          severity: violation.severity,
+          title: title,
+          description: violation.description,
+          agent: violation.agent_id || 'Unknown Agent',
+          policy: policyOrCompliance,
+          timestamp: violation.detected_at,
+          status: violation.status,
+          impact: violation.severity === 'critical' 
+            ? 'Critical - Immediate action required'
+            : violation.severity === 'warning'
+            ? 'Medium - Review required'
+            : 'Low - Monitor',
+          violation_id: violation.id,
+          policy_id: violation.policy_id,
+          compliance_id: violation.compliance_id,
+          violation_type: violation.violation_type,
+        };
+      });
+      
+      set({ alerts: transformedAlerts, isLoading: false });
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+      set({ isLoading: false });
+      // Keep existing alerts on error
+    }
+  },
+
+  updateAlertStatus: async (alertId, newStatus) => {
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+      const alert = get().alerts.find(a => a.id === alertId);
+      if (!alert?.violation_id) return;
+      
+      const response = await fetch(`${apiBase}/violations/${alert.violation_id}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to update violation status: ${response.status}`);
+      }
+
+      // Update local state
+      set(state => ({
+        alerts: state.alerts.map(a => 
+          a.id === alertId ? { ...a, status: newStatus } : a
+        )
+      }));
+    } catch (error) {
+      console.error('Error updating alert status:', error);
+      throw error;
+    }
+  },
 
   setFilterSeverity: (severity) => set({ filterSeverity: severity }),
   setFilterStatus: (status) => set({ filterStatus: status }),

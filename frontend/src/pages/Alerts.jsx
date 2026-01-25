@@ -1,11 +1,20 @@
-import { IconAlertTriangle, IconAlertCircle, IconInfoCircle } from '@tabler/icons-react'
+import { useState, useEffect } from 'react'
+import { IconAlertTriangle, IconAlertCircle, IconInfoCircle, IconRefresh, IconLoader } from '@tabler/icons-react'
 import DataTable from '../components/DataTable'
 import StatusBadge from '../components/StatusBadge'
 import { useAlertsStore } from '../store/alertsStore'
+import { Button } from '../components/ui/button'
 
 export default function Alerts() {
-  const { alerts, filterSeverity, filterStatus, setFilterSeverity, setFilterStatus } =
+  const { alerts, isLoading, filterSeverity, filterStatus, setFilterSeverity, setFilterStatus, fetchAlerts } =
     useAlertsStore()
+
+  useEffect(() => {
+    fetchAlerts()
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchAlerts, 30000)
+    return () => clearInterval(interval)
+  }, [fetchAlerts])
 
   const filteredAlerts = alerts.filter((alert) => {
     if (filterSeverity !== 'all' && alert.severity !== filterSeverity) return false
@@ -93,13 +102,33 @@ export default function Alerts() {
   return (
     <div className="space-y-6 p-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900 mb-2">
-          Alerts & Violations Center
-        </h1>
-        <p className="text-slate-600">
-          Monitor, investigate, and resolve compliance alerts and policy violations
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900 mb-2">
+            Alerts & Violations Center
+          </h1>
+          <p className="text-slate-600">
+            Monitor, investigate, and resolve compliance alerts and policy violations
+          </p>
+        </div>
+        <Button
+          onClick={fetchAlerts}
+          disabled={isLoading}
+          variant="outline"
+          className="flex items-center gap-2"
+        >
+          {isLoading ? (
+            <>
+              <IconLoader size={18} className="animate-spin" />
+              Loading...
+            </>
+          ) : (
+            <>
+              <IconRefresh size={18} />
+              Refresh
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Summary Cards */}
@@ -189,7 +218,20 @@ export default function Alerts() {
       </div>
 
       {/* Alerts Table */}
-      <DataTable columns={columns} data={filteredAlerts} />
+      {isLoading && alerts.length === 0 ? (
+        <div className="bg-white rounded-lg p-12 text-center">
+          <IconLoader size={48} className="text-slate-300 mx-auto mb-4 animate-spin" />
+          <p className="text-slate-500">Loading violations...</p>
+        </div>
+      ) : filteredAlerts.length > 0 ? (
+        <DataTable columns={columns} data={filteredAlerts} />
+      ) : (
+        <div className="bg-white rounded-lg p-12 text-center">
+          <IconAlertCircle size={48} className="text-slate-300 mx-auto mb-4" />
+          <p className="text-slate-500">No violations found</p>
+          <p className="text-sm text-slate-400 mt-2">All agents are compliant with policies and regulations</p>
+        </div>
+      )}
     </div>
   )
 }

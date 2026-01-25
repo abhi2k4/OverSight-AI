@@ -194,6 +194,36 @@ export async function queryAgent(agentId, query, sessionId = null, chatHistory =
     }
   }
 
+  // Initialize Langfuse for tracing
+  let langfuse = null;
+  let trace = null;
+  let generation = null;
+  
+  try {
+    const { Langfuse } = await import('langfuse');
+    if (process.env.LANGFUSE_SECRET_KEY && process.env.LANGFUSE_PUBLIC_KEY) {
+      langfuse = new Langfuse({
+        secretKey: process.env.LANGFUSE_SECRET_KEY,
+        publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+        baseUrl: process.env.LANGFUSE_BASE_URL || 'http://localhost:3000',
+      });
+      
+      // Create trace for this agent query
+      trace = langfuse.trace({
+        name: `agent-query-${agent.agentType}`,
+        userId: sessionId || 'anonymous',
+        sessionId: sessionId,
+        metadata: {
+          agentId: agentId,
+          agentName: agent.name,
+          agentType: agent.agentType,
+        },
+      });
+    }
+  } catch (error) {
+    console.warn('Langfuse initialization failed:', error.message);
+  }
+
   try {
     const geminiClient = await initializeGemini();
     if (!geminiClient) {
@@ -288,9 +318,60 @@ export async function queryAgent(agentId, query, sessionId = null, chatHistory =
       parts: [{ text: enhancedQuery }],
     });
 
+    // Fetch active policies and compliances to inject into system prompt
+    let governancePrompt = '';
+    try {
+      const apiBase = process.env.API_BASE_URL || 'http://127.0.0.1:8000';
+      const [policiesRes, compliancesRes] = await Promise.all([
+        fetch(`${apiBase}/api/policies?status=active`).catch(() => null),
+        fetch(`${apiBase}/api/compliances`).catch(() => null)
+      ]);
+      
+      if (policiesRes?.ok) {
+        const policies = await policiesRes.json();
+        if (compliancesRes?.ok) {
+          const compliances = await compliancesRes.json();
+          
+          // Build governance prompt
+          if (policies.length > 0 || compliances.length > 0) {
+            governancePrompt = '\n\n=== GOVERNANCE POLICIES & COMPLIANCE REQUIREMENTS ===\n\n';
+            
+            if (policies.length > 0) {
+              governancePrompt += 'POLICIES:\n';
+              policies.forEach(policy => {
+                governancePrompt += `- ${policy.name} (${policy.category}, ${policy.severity}): ${policy.description}\n`;
+              });
+              governancePrompt += '\n';
+            }
+            
+            if (compliances.length > 0) {
+              governancePrompt += 'COMPLIANCE FRAMEWORKS:\n';
+              compliances.forEach(compliance => {
+                governancePrompt += `- ${compliance.name} (${compliance.full_name}): ${compliance.description}\n`;
+                if (compliance.details) {
+                  const details = compliance.details.length > 500 
+                    ? compliance.details.substring(0, 500) + '...' 
+                    : compliance.details;
+                  governancePrompt += `  Key Requirements: ${details}\n`;
+                }
+              });
+              governancePrompt += '\n';
+            }
+            
+            governancePrompt += 'IMPORTANT: You must comply with all policies and compliance requirements above. ';
+            governancePrompt += 'If your response or actions would violate any policy, you must indicate this clearly. ';
+            governancePrompt += 'Report any potential violations immediately. ';
+            governancePrompt += 'When responding, ensure your answer adheres to these governance requirements.\n';
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch policies/compliances for governance:', error.message);
+    }
+    
     // Call Gemini API directly
-    // Enhance system prompt to ensure natural language responses
-    const enhancedSystemPrompt = `${agent.systemPrompt}
+    // Enhance system prompt to ensure natural language responses and include governance
+    const enhancedSystemPrompt = `${agent.systemPrompt}${governancePrompt}
 
 IMPORTANT: Always respond in natural, conversational language. Use complete sentences and a friendly, helpful tone. Avoid structured formats, bullet points, or technical jargon unless the user specifically requests them. Communicate like a helpful colleague having a conversation.`;
     
@@ -303,6 +384,20 @@ IMPORTANT: Always respond in natural, conversational language. Use complete sent
     };
 
     const model = agent.llmConfig.model || 'gemini-2.0-flash-exp';
+    
+    // Create generation span in Langfuse
+    if (trace) {
+      generation = trace.generation({
+        name: 'gemini-generation',
+        model: model,
+        input: enhancedQuery,
+        metadata: {
+          systemPrompt: agent.systemPrompt?.substring(0, 200) || '',
+          chatHistoryLength: chatHistory.length,
+          hasContextData: !!contextData,
+        },
+      });
+    }
     
     const response = await geminiClient.models.generateContentStream({
       model,
@@ -320,6 +415,89 @@ IMPORTANT: Always respond in natural, conversational language. Use complete sent
 
     const responseText = fullText.trim() || 'No response generated';
     const executionTime = Date.now() - startTime;
+    
+    // Estimate token usage (rough approximation: 1 token ≈ 4 characters)
+    const inputTokens = Math.ceil(enhancedQuery.length / 4);
+    const outputTokens = Math.ceil(responseText.length / 4);
+    const totalTokens = inputTokens + outputTokens;
+    
+    // Detect violations (call backend API) - non-blocking
+    let violationsDetected = [];
+    const detectViolations = async () => {
+      try {
+        const apiBase = process.env.API_BASE_URL || 'http://127.0.0.1:8000';
+        const violationRes = await fetch(`${apiBase}/api/violations/detect`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: query,
+            response: responseText,
+            agent_id: agentId,
+            agent_name: agent.name,
+            langfuse_trace_id: trace?.id || null
+          })
+        }).catch(() => null);
+        
+        if (violationRes?.ok) {
+          const detected = await violationRes.json();
+          violationsDetected = detected;
+          console.log(`[Violation Detection] Detected ${violationsDetected.length} violations`);
+          
+          // Update trace with violations if they were detected
+          if (trace && violationsDetected.length > 0) {
+            trace.update({
+              metadata: {
+                ...trace.metadata,
+                violations: violationsDetected.map(v => ({
+                  policy_id: v.policy_id,
+                  compliance_id: v.compliance_id,
+                  violation_type: v.violation_type,
+                  severity: v.severity,
+                  description: v.description?.substring(0, 200)
+                })),
+                violations_count: violationsDetected.length
+              },
+              level: 'WARNING',
+              statusMessage: `${violationsDetected.length} violation(s) detected`
+            });
+            await langfuse.flush();
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to detect violations:', error.message);
+      }
+    };
+    
+    // Start violation detection (don't await - non-blocking)
+    detectViolations();
+    
+    // Update generation with output and metrics
+    if (generation) {
+      generation.end({
+        output: responseText,
+        usage: {
+          input: inputTokens,
+          output: outputTokens,
+          total: totalTokens,
+        },
+        model: model,
+        latency: executionTime,
+      });
+    }
+    
+    // End trace (violations will be updated asynchronously)
+    if (trace) {
+      trace.update({
+        metadata: {
+          ...trace.metadata,
+          executionTime: executionTime,
+          toolCallsCount: toolCalls.length,
+        },
+        level: 'DEFAULT',
+        statusMessage: 'Success'
+      });
+      await langfuse.flush();
+    }
 
     // Store conversation
     if (sessionId) {
@@ -347,15 +525,35 @@ IMPORTANT: Always respond in natural, conversational language. Use complete sent
         collections_used: contextData.collections ? Object.keys(contextData.collections) : [],
         total_records: contextData.collections ? 
           Object.values(contextData.collections).reduce((sum, c) => sum + c.record_count, 0) : 0
-      } : null
+      } : null,
+      trace_id: trace?.id || null,
+      violations: violationsDetected,
     };
   } catch (error) {
     console.error('Error querying agent:', error);
+    
+    // Log error to Langfuse if trace exists
+    if (trace) {
+      trace.update({
+        level: 'ERROR',
+        statusMessage: error.message || 'Failed to query agent',
+      });
+      if (generation) {
+        generation.end({
+          level: 'ERROR',
+          statusMessage: error.message,
+        });
+      }
+      await langfuse?.flush();
+    }
+    
     return {
       success: false,
       error: error.message || 'Failed to query agent',
       agent: agent.name,
       agent_type: agent.agentType,
+      trace_id: trace?.id || null,
+      violations: [],
     };
   }
 }
