@@ -290,30 +290,42 @@ export default function LandingPage() {
                     
                     <div className="space-y-4">
                         {[
-                            { 
-                                q: "What is an AI Agent?", 
-                                a: "An AI Agent is an autonomous system that can perceive its environment, reason about how to achieve goals, and pass actions to accomplish them. OverSight provides comprehensive oversight for all your AI agents." 
-                            },
-                            { 
-                                q: "How does OverSight work?", 
-                                a: "We provide an SDK that you integrate into your agent code. It asynchronously sends telemetry to our cloud or your self-hosted instance without adding latency. All monitoring happens in real-time with zero impact on performance." 
-                            },
-                            { 
-                                q: "Is there a performance impact?", 
-                                a: "Minimal to none. Our SDK operations are non-blocking and batched to ensure your agent's response time remains unaffected. Most customers see less than 1ms overhead." 
-                            },
-                            { 
-                                q: "Can I self-host OverSight?", 
-                                a: "Yes! The Enterprise plan allows you to deploy the entire stack within your own VPC for complete data isolation. We support AWS, Azure, GCP, and on-premises deployments." 
-                            },
-                            {
-                                q: "What integrations do you support?",
-                                a: "We integrate with all major LLM providers (OpenAI, Anthropic, Google, etc.), observability tools (Langfuse, DataHub), and authentication systems (Keycloak, Auth0). Custom integrations are available on Enterprise plans."
-                            },
-                            {
-                                q: "How does billing work?",
-                                a: "Billing is based on the number of traces (LLM calls) per month. You can start with our free tier and upgrade as needed. No surprise charges - you only pay for what you use."
-                            }
+                          {
+                              q: "What is OverSight?",
+                              a: "OverSight is an AI & Data Governance Control Plane that provides real-time visibility into how AI agents use data, enforce governance policies, and generate audit-ready compliance evidence."
+                          },
+                          {
+                              q: "What problem does OverSight solve?",
+                              a: "OverSight closes the governance gap by answering who used what data, through which AI agent, for what purpose, and whether it complied with organizational and regulatory policies."
+                          },
+                          {
+                              q: "What is an AI Agent?",
+                              a: "An AI Agent is an autonomous system that consumes data, reasons over it, and takes actions or decisions. OverSight tracks and governs every data interaction and decision made by AI agents."
+                          },
+                          {
+                              q: "How does OverSight work?",
+                              a: "OverSight collects telemetry from data pipelines and AI agents, enriches it with metadata and context, evaluates actions against governance rules, and continuously monitors compliance in real time."
+                          },
+                          {
+                              q: "Does OverSight add latency to AI systems?",
+                              a: "No. Telemetry collection is asynchronous and non-blocking. Governance evaluation and monitoring do not impact agent execution or response times."
+                          },
+                          {
+                              q: "What kind of data does OverSight monitor?",
+                              a: "OverSight monitors structured and unstructured data, including logs, files, media, databases, and application data, along with their sensitivity, ownership, and usage context."
+                          },
+                          {
+                              q: "Which compliance standards does OverSight support?",
+                              a: "OverSight supports GDPR, CCPA, HIPAA, SOX, and enterprise internal governance policies. Compliance rules are explicit, explainable, and version-controlled."
+                          },
+                          {
+                              q: "Can OverSight detect violations in real time?",
+                              a: "Yes. OverSight evaluates AI actions as they occur and immediately flags policy violations, risky behavior, and non-compliant data usage."
+                          },
+                          {
+                              q: "Does OverSight maintain audit logs?",
+                              a: "Yes. Every decision, policy evaluation, and violation is recorded in immutable audit logs that can be exported for regulatory and internal audits."
+                          },
                         ].map((item, i) => (
                             <AccordionItem 
                                 key={i} 
@@ -328,7 +340,11 @@ export default function LandingPage() {
                     <div className="mt-12 text-center p-8 rounded-2xl bg-card border border-border">
                         <h3 className="text-xl font-bold mb-2">Still have questions?</h3>
                         <p className="text-muted-foreground mb-6">Our team is here to help you get started with OverSight</p>
-                        <Button variant="default" className="bg-[#7C3AED] hover:bg-[#6D28D9]">
+                        <Button 
+                            variant="default" 
+                            className="bg-[#7C3AED] hover:bg-[#6D28D9]"
+                            onClick={() => window.location.href = 'mailto:shaikhjishan255@gmail.com?subject=Enquiry for OverSight AI&body=Hi,%0A%0AI went through your product OverSight AI and I am interested in learning more about:%0A%0A- [Please describe your use case or question here]%0A%0AThank you!'}
+                        >
                             Contact Support
                         </Button>
                     </div>
