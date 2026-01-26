@@ -106,5 +106,23 @@
       radial-gradient(at 80% 100%, hsla(242,100%,16%,1) 0px, transparent 50%),
       radial-gradient(at 0% 0%, hsla(343,100%,16%,1) 0px, transparent 50%);    
   }
+
+  /* Markdown content styling */
+  .markdown-content {
+    @apply break-words;
+  }
+
+  .markdown-content strong {
+    @apply font-semibold;
+    color: inherit;
+  }
+
+  .markdown-content p {
+    @apply break-words;
+  }
+
+  .markdown-content code {
+    @apply break-words;
+  }
 }
 

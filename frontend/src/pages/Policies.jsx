@@ -132,12 +132,35 @@ export default function Policies() {
     })
   }
 
-  // Fetch policies from backend API on mount
+  // Load policies from localStorage or default data on mount
   useEffect(() => {
-    fetchPolicies()
+    loadPolicies()
   }, [])
 
-  const fetchPolicies = async () => {
+  const loadPolicies = () => {
+    // First, try to load from localStorage
+    try {
+      const storedPolicies = localStorage.getItem('policies')
+      if (storedPolicies) {
+        const parsed = JSON.parse(storedPolicies)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setPolicies(parsed)
+          return
+        }
+      }
+    } catch (error) {
+      console.warn('Error loading policies from localStorage:', error)
+    }
+
+    // If no localStorage data, use default policies
+    setPolicies(defaultPolicies)
+    
+    // Optionally try to fetch from server in the background (silently)
+    // This allows the app to work offline while still syncing when server is available
+    fetchPoliciesFromServer(true) // silent = true
+  }
+
+  const fetchPoliciesFromServer = async (silent = false) => {
     try {
       const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
       const response = await fetch(`${apiBase}/policies`)
@@ -172,17 +195,26 @@ export default function Policies() {
         description: policy.description
       }))
       
+      // Update state and save to localStorage
       setPolicies(transformedPolicies)
+      localStorage.setItem('policies', JSON.stringify(transformedPolicies))
     } catch (error) {
-      console.error('Error fetching policies:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Failed to Load Policies',
-        description: 'Could not fetch policies from server. Using default data.',
-      })
-      // Fallback to default policies
-      setPolicies(defaultPolicies)
+      // Only show error if not in silent mode (i.e., user explicitly requested server data)
+      if (!silent) {
+        console.error('Error fetching policies:', error)
+        toast({
+          variant: 'destructive',
+          title: 'Failed to Load Policies',
+          description: 'Could not fetch policies from server. Using local data.',
+        })
+      }
+      // Don't change policies if server fetch fails - keep using local/default data
     }
+  }
+
+  const fetchPolicies = () => {
+    // Public method that tries server first (non-silent)
+    fetchPoliciesFromServer(false)
   }
 
   const getSeverityColor = (severity) => {
@@ -247,8 +279,26 @@ export default function Policies() {
 
       const newPolicy = await response.json()
 
-      // Refresh policies list
-      await fetchPolicies()
+      // Refresh policies list from server
+      await fetchPoliciesFromServer(false)
+      
+      // Also update localStorage
+      try {
+        const currentPolicies = JSON.parse(localStorage.getItem('policies') || '[]')
+        const updatedPolicies = [...currentPolicies, {
+          id: newPolicy.id,
+          name: newPolicy.name,
+          category: newPolicy.category,
+          status: newPolicy.status,
+          violations: 0,
+          lastUpdated: newPolicy.updated_at || newPolicy.created_at,
+          severity: newPolicy.severity,
+          description: newPolicy.description
+        }]
+        localStorage.setItem('policies', JSON.stringify(updatedPolicies))
+      } catch (error) {
+        console.warn('Error updating localStorage:', error)
+      }
 
       setDescription('')
       setIsDialogOpen(false)

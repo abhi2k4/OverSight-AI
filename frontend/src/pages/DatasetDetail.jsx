@@ -118,14 +118,27 @@ export default function DatasetDetail() {
           const metadata = firstRecord.enriched_metadata || {};
           const tags = metadata.tags || [];
           
+          // Filter out "Data record from" descriptions
+          let description = metadata.description || 'No description available';
+          if (description.toLowerCase().includes('data record from')) {
+            description = 'No description available';
+          }
+          
+          // Use user-specified sensitivity and compliance if available, otherwise derive from tags
+          const userSensitivity = metadata.user_sensitivity;
+          const userCompliance = metadata.user_compliance || [];
+          
+          const sensitivity = userSensitivity || deriveSensitivity(tags);
+          const compliance = userCompliance.length > 0 ? userCompliance : extractCompliance(tags);
+          
           setCollectionInfo({
             name: `${parsed.sourceSystem} - ${parsed.entityType}`,
             sourceSystem: parsed.sourceSystem,
             entityType: parsed.entityType,
-            description: metadata.description || 'No description available',
+            description: description,
             tags: tags,
-            sensitivity: deriveSensitivity(tags),
-            compliance: extractCompliance(tags),
+            sensitivity: sensitivity,
+            compliance: compliance,
             lastUpdated: firstRecord.enrichment_timestamp,
             avgConfidence: calculateAvgConfidence(dbRecords),
           });
@@ -170,14 +183,27 @@ export default function DatasetDetail() {
         const metadata = firstRecord.enriched_metadata || {};
         const tags = metadata.tags || [];
         
+        // Filter out "Data record from" descriptions
+        let description = metadata.description || 'No description available';
+        if (description.toLowerCase().includes('data record from')) {
+          description = 'No description available';
+        }
+        
+        // Use user-specified sensitivity and compliance if available, otherwise derive from tags
+        const userSensitivity = metadata.user_sensitivity;
+        const userCompliance = metadata.user_compliance || [];
+        
+        const sensitivity = userSensitivity || deriveSensitivity(tags);
+        const compliance = userCompliance.length > 0 ? userCompliance : extractCompliance(tags);
+        
         setCollectionInfo({
           name: `${sourceSystem} - ${entityType}`,
           sourceSystem: sourceSystem,
           entityType: entityType,
-          description: metadata.description || 'No description available',
+          description: description,
           tags: tags,
-          sensitivity: deriveSensitivity(tags),
-          compliance: extractCompliance(tags),
+          sensitivity: sensitivity,
+          compliance: compliance,
           lastUpdated: firstRecord.enrichment_timestamp || new Date().toISOString(),
           avgConfidence: calculateAvgConfidence(data.records),
         });
@@ -225,7 +251,17 @@ export default function DatasetDetail() {
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'Unknown';
     const date = new Date(timestamp);
-    return date.toLocaleString();
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
   };
 
   const getSensitivityColor = (sensitivity) => {
@@ -347,7 +383,7 @@ export default function DatasetDetail() {
               <div className="flex items-center gap-2">
                 <IconClock className="w-4 h-4 text-slate-400" />
                 <span className="text-sm text-slate-600">
-                  Updated: {formatTimestamp(collectionInfo.lastUpdated)}
+                  {formatTimestamp(collectionInfo.lastUpdated)}
                 </span>
               </div>
               <span className="text-slate-300">•</span>
@@ -377,7 +413,7 @@ export default function DatasetDetail() {
       <div className="flex-1 overflow-y-auto p-8">
         <div className="max-w-7xl mx-auto space-y-6">
           {/* Overview Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
@@ -402,17 +438,6 @@ export default function DatasetDetail() {
               </div>
             </Card>
 
-            <Card className="p-6">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <IconTrendingUp className="w-5 h-5 text-emerald-600" />
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider">Avg Confidence</p>
-                  <p className="text-sm font-semibold text-slate-900">{collectionInfo.avgConfidence}%</p>
-                </div>
-              </div>
-            </Card>
 
             <Card className="p-6">
               <div className="flex items-center gap-3 mb-2">
@@ -489,12 +514,6 @@ export default function DatasetDetail() {
                         <th className="text-left py-3 px-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
                           Data
                         </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                          Confidence
-                        </th>
-                        <th className="text-left py-3 px-4 text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                          Enriched
-                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
@@ -509,26 +528,6 @@ export default function DatasetDetail() {
                                 {JSON.stringify(record.raw_data, null, 2)}
                               </pre>
                             </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <div className="flex items-center gap-2">
-                              <div className="w-16 h-2 bg-slate-200 rounded-full overflow-hidden">
-                                <div
-                                  className="h-full bg-blue-600 transition-all"
-                                  style={{
-                                    width: `${(record.enriched_metadata?.confidence || 0) * 100}%`,
-                                  }}
-                                />
-                              </div>
-                              <span className="text-sm text-slate-600">
-                                {((record.enriched_metadata?.confidence || 0) * 100).toFixed(1)}%
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-4 px-4">
-                            <span className="text-sm text-slate-600">
-                              {formatTimestamp(record.enrichment_timestamp)}
-                            </span>
                           </td>
                         </tr>
                       ))}

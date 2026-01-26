@@ -46,13 +46,7 @@ export default function ChatbotMonitor() {
       const data = await response.json();
       setHealthStatus(data);
       
-      if (!data.groq.connected) {
-        setErrorAlert({
-          variant: 'warning',
-          title: 'Groq API Not Configured',
-          description: 'Please configure GROQ_API_KEY in your .env file to enable chat functionality.',
-        });
-      } else if (!data.langfuse.connected) {
+      if (!data.langfuse.connected) {
         setErrorAlert({
           variant: 'info',
           title: 'LangFuse Not Configured',
@@ -170,9 +164,6 @@ export default function ChatbotMonitor() {
             </h1>
             {healthStatus && (
               <div className="flex items-center gap-4 mt-2 text-sm">
-                <span className={`flex items-center gap-1 ${healthStatus.groq.connected ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {healthStatus.groq.connected ? '✓' : '✗'} Groq API
-                </span>
                 <span className={`flex items-center gap-1 ${healthStatus.langfuse.connected ? 'text-emerald-600' : 'text-amber-600'}`}>
                   {healthStatus.langfuse.connected ? '✓' : '○'} LangFuse
                 </span>
@@ -409,15 +400,14 @@ export default function ChatbotMonitor() {
                           <span className="text-sm font-medium text-slate-600 w-16">
                             {item.hour}:00
                           </span>
-                          <div className="flex-1 bg-slate-200 rounded-full h-8 relative overflow-hidden">
+                          <div className="flex-1 bg-slate-200 rounded-full h-2.5 relative overflow-hidden">
                             <div
-                              className="bg-[#1E40AF] h-full rounded-full flex items-center justify-end pr-3 transition-all"
+                              className="bg-emerald-500 h-full rounded-full transition-all"
                               style={{ width: `${percentage}%` }}
-                            >
-                              <span className="text-xs font-semibold text-white">
-                                {item.requests}
-                              </span>
-                            </div>
+                            ></div>
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-700">
+                              {item.requests}
+                            </span>
                           </div>
                         </div>
                       );
@@ -523,7 +513,7 @@ export default function ChatbotMonitor() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card className="p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-slate-900">Model Usage Distribution</h3>
+                    <h3 className="text-lg font-semibold text-slate-900">Model Usage</h3>
                     <IconChartBar className="text-slate-400" size={20} />
                   </div>
                   <div className="space-y-3">
@@ -532,15 +522,28 @@ export default function ChatbotMonitor() {
                         const totalCalls = Object.values(langfuse.modelUsage).reduce((a, b) => a + b, 0);
                         const percentage = (count / totalCalls) * 100;
                         
+                        // Better display name for models
+                        const getModelDisplayName = (modelName) => {
+                          if (!modelName || modelName.toLowerCase() === 'unknown' || modelName.trim() === '') {
+                            return 'LLM';
+                          }
+                          // Format model names nicely
+                          return modelName
+                            .split('/')
+                            .pop() // Get last part after slash
+                            .replace(/-/g, ' ')
+                            .replace(/\b\w/g, l => l.toUpperCase()); // Capitalize words
+                        };
+                        
                         return (
                           <div key={model} className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-slate-700">{model}</span>
+                              <span className="text-sm font-medium text-slate-700">{getModelDisplayName(model)}</span>
                               <span className="text-sm text-slate-600">{count} calls ({percentage.toFixed(1)}%)</span>
                             </div>
                             <div className="w-full bg-slate-200 rounded-full h-2.5">
                               <div
-                                className="bg-gradient-to-r from-blue-600 to-purple-600 h-2.5 rounded-full transition-all"
+                                className="bg-emerald-500 h-2.5 rounded-full transition-all"
                                 style={{ width: `${percentage}%` }}
                               ></div>
                             </div>
@@ -649,15 +652,14 @@ export default function ChatbotMonitor() {
                             <span className="text-sm font-medium text-slate-600 w-16">
                               {item.hour}:00
                             </span>
-                            <div className="flex-1 bg-slate-200 rounded-full h-8 relative overflow-hidden">
+                            <div className="flex-1 bg-slate-200 rounded-full h-2.5 relative overflow-hidden">
                               <div
-                                className="bg-gradient-to-r from-purple-600 to-blue-600 h-full rounded-full flex items-center justify-end pr-3 transition-all"
+                                className="bg-emerald-500 h-full rounded-full transition-all"
                                 style={{ width: `${percentage}%` }}
-                              >
-                                <span className="text-xs font-semibold text-white">
-                                  {item.traces}
-                                </span>
-                              </div>
+                              ></div>
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-700">
+                                {item.traces}
+                              </span>
                             </div>
                           </div>
                         );

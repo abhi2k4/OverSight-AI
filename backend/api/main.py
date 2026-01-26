@@ -95,6 +95,33 @@ app.include_router(violation_router, prefix=settings.api_prefix)
 async def startup_event():
     """Initialize database on startup"""
     init_db()
+    
+    # Seed default compliances if database is empty
+    try:
+        from backend.database import SessionLocal
+        from backend.models import Compliance
+        
+        db = SessionLocal()
+        try:
+            compliance_count = db.query(Compliance).count()
+            if compliance_count == 0:
+                print("[Startup] No compliances found in database, seeding defaults...")
+                from backend.scripts.seed_compliances import seed_compliances
+                seed_compliances()
+            else:
+                print(f"[Startup] Found {compliance_count} compliances in database")
+                
+            # Also check policies
+            from backend.models import Policy
+            policy_count = db.query(Policy).count()
+            print(f"[Startup] Found {policy_count} policies in database")
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"[Startup] Warning: Could not check/seed compliances: {e}")
+        import traceback
+        traceback.print_exc()
+    
     print(f"✅ {settings.app_name} started successfully")
     print(f"📊 Database: {settings.database_url}")
     print(f"🤖 Model: {settings.gemini_model}")
@@ -706,6 +733,21 @@ async def process_ingestion_job(job_id: str, file_paths: List[Dict[str, str]]):
         job_statuses[job_id]["enrichment_status"] = "pending"  # Ready for enrichment
         job_statuses[job_id]["progress"] = 100
         
+        # Save metadata (sensitivity and compliance) to a JSON file in output directory
+        import json
+        metadata = {}
+        for file_info in file_paths:
+            entity_type = file_info.get("entity_type", "")
+            if entity_type:
+                metadata[entity_type] = {
+                    "sensitivity": file_info.get("sensitivity", "Low"),
+                    "compliance": file_info.get("compliance", [])
+                }
+        
+        metadata_file = output_dir / "metadata.json"
+        with open(metadata_file, "w") as f:
+            json.dump(metadata, f, indent=2)
+        
         print(f"[Job {job_id}] Ingestion complete: {total_records} records ingested. Ready for enrichment.")
         
     except Exception as e:
@@ -721,7 +763,9 @@ async def process_ingestion_job(job_id: str, file_paths: List[Dict[str, str]]):
 async def upload_files(
     background_tasks: BackgroundTasks,
     files: List[UploadFile] = File(...),
-    entity_types: Optional[str] = Form(None)
+    entity_types: Optional[str] = Form(None),
+    sensitivities: Optional[str] = Form(None),
+    compliances: Optional[str] = Form(None)
 ):
     """
     Upload files for ingestion and enrichment
@@ -744,6 +788,20 @@ async def upload_files(
     
     # Parse entity types if provided (comma-separated)
     entity_type_list = entity_types.split(",") if entity_types else []
+    
+    # Parse sensitivities if provided (comma-separated)
+    sensitivity_list = sensitivities.split(",") if sensitivities else []
+    
+    # Parse compliances if provided (JSON array of arrays)
+    compliance_list = []
+    if compliances:
+        try:
+            import json
+            compliance_list = json.loads(compliances)
+            if not isinstance(compliance_list, list):
+                compliance_list = []
+        except:
+            compliance_list = []
     
     # Save files and detect types
     file_paths = []
@@ -771,6 +829,14 @@ async def upload_files(
         # Get entity type (from form or filename)
         entity_type = entity_type_list[idx] if idx < len(entity_type_list) else Path(file.filename).stem
         
+        # Get sensitivity (from form or default to 'Low')
+        sensitivity = sensitivity_list[idx] if idx < len(sensitivity_list) else 'Low'
+        
+        # Get compliance (from form or default to empty list)
+        compliance = compliance_list[idx] if idx < len(compliance_list) else []
+        if not isinstance(compliance, list):
+            compliance = []
+        
         # Save file
         file_path = upload_dir / file.filename
         with open(file_path, "wb") as buffer:
@@ -780,7 +846,9 @@ async def upload_files(
             "path": str(file_path),
             "type": file_type,
             "entity_type": entity_type,
-            "filename": file.filename
+            "filename": file.filename,
+            "sensitivity": sensitivity,
+            "compliance": compliance
         })
     
     # Initialize job status
@@ -1074,6 +1142,7 @@ async def get_output_collections(
             }
         
         all_records = []
+        metadata_map = {}  # entity_type -> {sensitivity, compliance}
         
         # Search through all job directories
         for job_dir in uploads_dir.iterdir():
@@ -1083,6 +1152,16 @@ async def get_output_collections(
             output_dir = job_dir / "output"
             if not output_dir.exists():
                 continue
+            
+            # Try to load metadata.json if it exists
+            metadata_file = output_dir / "metadata.json"
+            if metadata_file.exists():
+                try:
+                    with open(metadata_file, 'r') as f:
+                        job_metadata = json.load(f)
+                        metadata_map.update(job_metadata)
+                except:
+                    pass
             
             # Find all JSONL files matching the criteria
             for jsonl_file in output_dir.rglob("data.jsonl"):
@@ -1190,6 +1269,9 @@ async def get_output_collections(
                                         "estimated_size": estimated_size
                                     }
                                 
+                                # Get metadata for this entity_type if available
+                                entity_metadata = metadata_map.get(file_entity_type, {})
+                                
                                 # Create a record in the same format as enriched records
                                 record = {
                                     "id": len(all_records) + 1,  # Temporary ID
@@ -1197,7 +1279,12 @@ async def get_output_collections(
                                     "entity_type": file_entity_type,
                                     "raw_data": raw_data,
                                     "enriched_metadata": enriched_metadata,
-                                    "enrichment_timestamp": record_data.get("ingestion_timestamp") or datetime.now(timezone.utc).isoformat()
+                                    "enrichment_timestamp": record_data.get("ingestion_timestamp") or datetime.now(timezone.utc).isoformat(),
+                                    # Add upload metadata (sensitivity and compliance)
+                                    "upload_metadata": {
+                                        "sensitivity": entity_metadata.get("sensitivity", "Low"),
+                                        "compliance": entity_metadata.get("compliance", [])
+                                    }
                                 }
                                 
                                 all_records.append(record)
@@ -1241,7 +1328,8 @@ async def get_output_collections(
             "total": total,
             "page": (offset // limit) + 1,
             "limit": limit,
-            "records": paginated_records
+            "records": paginated_records,
+            "metadata": metadata_map  # Include metadata in response
         }
         
     except Exception as e:

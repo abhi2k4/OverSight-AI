@@ -28,6 +28,11 @@ import {
   IconCode,
   IconChevronDown,
   IconChevronUp,
+  IconX,
+  IconMenu2,
+  IconSettings,
+  IconHistory,
+  IconWand,
 } from '@tabler/icons-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -53,7 +58,54 @@ export default function AgentDetail() {
   const [datahubContext, setDatahubContext] = useState(null)
   const [contextLoading, setContextLoading] = useState(false)
   const [useDataHubContext, setUseDataHubContext] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const { toast } = useToast()
+
+  // Get suggested prompts based on agent type
+  const getSuggestedPrompts = () => {
+    if (!agent) return []
+    
+    const agentType = agent.agentType?.toLowerCase() || ''
+    const prompts = {
+      'sales': [
+        'What are the top performing products this month?',
+        'Show me recent customer transactions',
+        'Analyze sales trends for the last quarter',
+        'What are the best-selling items?'
+      ],
+      'product': [
+        'What are the current product specifications?',
+        'Show me inventory levels across all locations',
+        'What products need restocking?',
+        'Analyze product performance metrics'
+      ],
+      'compliance': [
+        'Check for compliance violations',
+        'Review data privacy policies',
+        'Analyze compliance status across datasets',
+        'What are the current compliance requirements?'
+      ],
+      'analytics': [
+        'Generate insights from recent data',
+        'What are the key metrics this week?',
+        'Analyze trends and patterns',
+        'Create a summary of data activity'
+      ],
+      'metadata': [
+        'What datasets are available?',
+        'Show me data quality metrics',
+        'Analyze metadata completeness',
+        'What are the data lineage relationships?'
+      ]
+    }
+    
+    return prompts[agentType] || [
+      'How can you help me today?',
+      'What are your capabilities?',
+      'Show me recent activity',
+      'Explain your functionality'
+    ]
+  }
 
   // Load agent data
   useEffect(() => {
@@ -321,35 +373,19 @@ export default function AgentDetail() {
           </div>
         </div>
 
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h2 className="text-3xl font-bold text-slate-900">{agent.name}</h2>
-              <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">
-                {agent.status}
-              </Badge>
-            </div>
-            <p className="text-slate-600 text-sm mt-2">
-              {agent.description || 'AI Agent for automated tasks and interactions'}
+        <div>
+          <div className="flex items-center gap-3">
+            <h2 className="text-3xl font-bold text-slate-900">{agent.name}</h2>
+          </div>
+          <p className="text-slate-600 text-sm mt-2">
+            {agent.description || 'AI Agent for automated tasks and interactions'}
+          </p>
+          {agent.deploymentId && (
+            <p className="text-slate-500 text-xs mt-1">
+              Deployment ID: {agent.deploymentId} | Last Audit: {agent.lastAudit || 'N/A'} |
+              Runtime: {agent.runtime || 'Local'}
             </p>
-            {agent.deploymentId && (
-              <p className="text-slate-500 text-xs mt-1">
-                Deployment ID: {agent.deploymentId} | Last Audit: {agent.lastAudit || 'N/A'} |
-                Runtime: {agent.runtime || 'Local'}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-2">
-              <IconDownload className="w-4 h-4" />
-              Export Report
-            </Button>
-            <Button variant="outline" className="gap-2">
-              <IconRefresh className="w-4 h-4" />
-              Re-evaluate
-            </Button>
-            <Button className="bg-[#1E40AF] hover:bg-[#1e3a8a]">Take Action</Button>
-          </div>
+          )}
         </div>
       </div>
 
@@ -586,36 +622,100 @@ export default function AgentDetail() {
             </div>
           </div>
         ) : (
-          /* Chat Interface */
-          <div className="max-w-4xl mx-auto">
-            <Card className="p-6 h-[calc(100vh-300px)] flex flex-col">
-              <div className="flex items-center gap-3 mb-4 pb-4 border-b border-slate-200">
-                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <IconRobot size={24} className="text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900">Chat with {agent.name}</h3>
-                  <p className="text-xs text-slate-500">
-                    {agent.specializationPrompt
-                      ? 'Agent is configured with custom system prompt'
-                      : 'Using default agent behavior'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-2 custom-scrollbar">
-                {messages.length === 0 ? (
-                  <div className="flex items-center justify-center h-full text-center">
-                    <div>
-                      <IconMessage size={48} className="text-slate-300 mx-auto mb-4" />
-                      <p className="text-slate-600 mb-2">Start a conversation with {agent.name}</p>
-                      <p className="text-sm text-slate-500">
-                        Ask questions or give instructions to interact with the agent
-                      </p>
+          /* Chat Interface - Full Width with Left Sidebar */
+          <div className="flex gap-6 h-[calc(100vh-300px)]">
+            {/* Contextual Sidebar - Left Side */}
+            {sidebarOpen && (
+              <aside className="w-72 flex-shrink-0 hidden lg:block">
+                <Card className="h-full flex flex-col shadow-lg">
+                  <div className="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="font-semibold text-slate-900">Agent Details</h4>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSidebarOpen(false)}
+                        className="h-7 w-7"
+                      >
+                        <IconX size={16} />
+                      </Button>
                     </div>
+                    <p className="text-xs text-slate-500">Context and capabilities</p>
                   </div>
-                ) : (
+
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-2 custom-scrollbar">
+                    {/* Agent Capabilities - Direct Content */}
+                    {agent.toolsEnabled && agent.toolsEnabled.length > 0 ? (
+                      agent.toolsEnabled.map((tool, idx) => (
+                        <div key={idx} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg">
+                          <IconCode size={14} className="text-slate-400" />
+                          <span className="text-xs text-slate-700">{tool}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-slate-500">No specific tools configured</p>
+                    )}
+                    {agent.specializationPrompt && (
+                      <div className="p-2 bg-slate-50 rounded-lg">
+                        <p className="text-xs font-medium text-slate-700 mb-1">Custom Prompt</p>
+                        <p className="text-xs text-slate-600 line-clamp-2">
+                          {agent.specializationPrompt.substring(0, 100)}...
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              </aside>
+            )}
+
+            {/* Main Chat Area - Full Width */}
+            <div className="flex-1 min-w-0">
+              <Card className="h-full flex flex-col shadow-lg">
+                {/* Chat Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-white to-slate-50/50">
+                  {!sidebarOpen && (
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setSidebarOpen(true)}
+                      >
+                        <IconMenu2 size={20} />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Messages Area */}
+                <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 mb-4 custom-scrollbar bg-gradient-to-b from-white via-slate-50/30 to-white">
+                  {messages.length === 0 ? (
+                    /* Enhanced Empty State */
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center max-w-2xl px-6">
+                        <h3 className="text-2xl font-bold text-slate-900 mb-8">
+                          Start a conversation with {agent.name}
+                        </h3>
+                        
+                        {/* Suggested Prompts */}
+                        <div className="space-y-3">
+                          <p className="text-sm font-medium text-slate-700 mb-4">Try asking:</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {getSuggestedPrompts().slice(0, 4).map((prompt, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => setInput(prompt)}
+                                className="group relative p-4 text-left bg-white border border-slate-200 rounded-xl hover:border-blue-300 hover:shadow-md transition-all duration-200 hover:bg-blue-50/50"
+                              >
+                                <p className="text-sm text-slate-700 group-hover:text-slate-900 font-medium leading-relaxed">
+                                  {prompt}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                   messages.map((message, idx) => (
                     <div
                       key={idx}
@@ -640,41 +740,66 @@ export default function AgentDetail() {
                       )}
                       <div
                         className={cn(
-                          'rounded-lg px-4 py-3 max-w-[80%]',
+                          'rounded-xl px-5 py-4 max-w-[75%] shadow-sm transition-all hover:shadow-md',
                           message.role === 'user'
-                            ? 'bg-blue-50 text-blue-900 border border-blue-200'
+                            ? 'bg-gradient-to-br from-blue-50 to-blue-100 text-blue-900 border border-blue-200'
                             : message.role === 'error'
                               ? 'bg-red-50 text-red-700 border border-red-200'
                               : message.role === 'context'
                                 ? 'bg-purple-50 text-purple-900 border border-purple-200'
-                                : 'bg-slate-100 text-slate-900'
+                                : 'bg-white text-slate-900 border border-slate-200'
                         )}
                       >
                         <div className={cn(
-                          "text-sm markdown-content",
+                          "text-sm markdown-content break-words",
                           message.role === 'user' ? 'text-blue-900' : 'text-slate-900'
                         )}>
                           <ReactMarkdown 
                             remarkPlugins={[remarkGfm]}
                             components={{
-                              p: ({node, ...props}) => <p className="my-2 leading-relaxed" {...props} />,
-                              strong: ({node, ...props}) => <strong className={cn("font-semibold", message.role === 'user' ? 'text-blue-900' : 'text-slate-900')} {...props} />,
+                              p: ({node, children, ...props}) => (
+                                <p className="my-2 leading-relaxed break-words" {...props}>
+                                  {children}
+                                </p>
+                              ),
+                              strong: ({node, children, ...props}) => (
+                                <strong 
+                                  className={cn(
+                                    "font-semibold inline break-words",
+                                    message.role === 'user' 
+                                      ? 'text-blue-900' 
+                                      : 'text-slate-900'
+                                  )} 
+                                  style={{ color: 'inherit' }}
+                                  {...props}
+                                >
+                                  {children}
+                                </strong>
+                              ),
                               em: ({node, ...props}) => <em className="italic" {...props} />,
                               h1: ({node, ...props}) => <h1 className={cn("text-lg font-semibold mt-4 mb-2", message.role === 'user' ? 'text-blue-900' : 'text-slate-900')} {...props} />,
                               h2: ({node, ...props}) => <h2 className={cn("text-base font-semibold mt-3 mb-2", message.role === 'user' ? 'text-blue-900' : 'text-slate-900')} {...props} />,
                               h3: ({node, ...props}) => <h3 className={cn("text-sm font-semibold mt-3 mb-1", message.role === 'user' ? 'text-blue-900' : 'text-slate-900')} {...props} />,
-                              ul: ({node, ...props}) => <ul className="list-disc list-inside my-2 space-y-1 ml-4" {...props} />,
-                              ol: ({node, ...props}) => <ol className="list-decimal list-inside my-2 space-y-1 ml-4" {...props} />,
-                              li: ({node, ...props}) => <li className="leading-relaxed" {...props} />,
-                              code: ({node, inline, ...props}) => 
+                              ul: ({node, ...props}) => <ul className="list-disc list-outside my-2 space-y-2 ml-6 pl-2" {...props} />,
+                              ol: ({node, ...props}) => <ol className="list-decimal list-outside my-2 space-y-2 ml-6 pl-2" {...props} />,
+                              li: ({node, ...props}) => <li className="leading-relaxed pl-2" {...props} />,
+                              code: ({node, inline, children, ...props}) => 
                                 inline ? (
-                                  <code className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-mono" {...props} />
+                                  <code className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-xs font-mono" {...props}>
+                                    {children}
+                                  </code>
                                 ) : (
-                                  <code className="block bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto text-xs font-mono my-2" {...props} />
+                                  <code className="block bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto text-xs font-mono my-2" {...props}>
+                                    {children}
+                                  </code>
                                 ),
-                              pre: ({node, ...props}) => <pre className="bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto text-xs font-mono my-2" {...props} />,
+                              pre: ({node, children, ...props}) => (
+                                <pre className="bg-slate-900 text-slate-100 p-3 rounded-lg overflow-x-auto text-xs font-mono my-2" {...props}>
+                                  {children}
+                                </pre>
+                              ),
                               blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-slate-300 pl-4 my-2 italic text-slate-700" {...props} />,
-                              a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-800 underline" {...props} />,
+                              a: ({node, ...props}) => <a className="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer" {...props} />,
                               hr: ({node, ...props}) => <hr className="my-4 border-slate-200" {...props} />,
                               table: ({node, ...props}) => <table className="border-collapse border border-slate-300 my-2 w-full" {...props} />,
                               thead: ({node, ...props}) => <thead className="bg-slate-100" {...props} />,
@@ -687,16 +812,6 @@ export default function AgentDetail() {
                             {message.content}
                           </ReactMarkdown>
                         </div>
-                        {message.metadata && (
-                          <p className="text-xs mt-2 opacity-70">
-                            {message.metadata.execution_time_ms}ms
-                            {message.metadata.tool_calls &&
-                              message.metadata.tool_calls.length > 0 &&
-                              ` • ${message.metadata.tool_calls.length} tool calls`}
-                            {message.metadata.datahub_context_used &&
-                              ` • DataHub context (${message.metadata.datasets_found} datasets)`}
-                          </p>
-                        )}
                         {/* Show actual data used from tool calls - Minimal Modern Design */}
                         {message.metadata?.tool_calls && message.metadata.tool_calls.length > 0 && (() => {
                           // Find tool calls that have data results
@@ -1026,34 +1141,44 @@ export default function AgentDetail() {
                 )}
               </div>
 
-              {/* Input */}
-              <div className="flex gap-2 pt-2">
-                <Input
-                  placeholder="Type your message..."
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      sendMessage()
-                    }
-                  }}
-                  disabled={chatLoading || contextLoading}
-                  className="flex-1 h-11"
-                />
-                <Button
-                  onClick={sendMessage}
-                  disabled={chatLoading || contextLoading || !input.trim()}
-                  className="bg-blue-600 hover:bg-blue-700 text-white h-11 px-6"
-                >
-                  {chatLoading || contextLoading ? (
-                    <IconLoader size={18} className="animate-spin" />
-                  ) : (
-                    <IconSend size={18} />
-                  )}
-                </Button>
-              </div>
-            </Card>
+                {/* Enhanced Input Area */}
+                <div className="px-6 py-4 border-t border-slate-200 bg-white">
+                  <div className="flex gap-3">
+                    <div className="flex-1 relative">
+                      <Input
+                        placeholder="Ask Anything"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            sendMessage()
+                          }
+                        }}
+                        disabled={chatLoading || contextLoading}
+                        className="h-12 pr-12 text-base border-slate-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                      />
+                      {input.length > 0 && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                          {input.length}
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      onClick={sendMessage}
+                      disabled={chatLoading || contextLoading || !input.trim()}
+                      className="bg-blue-600 hover:bg-blue-700 text-white h-12 px-8 shadow-md hover:shadow-lg transition-all"
+                    >
+                      {chatLoading || contextLoading ? (
+                        <IconLoader size={20} className="animate-spin" />
+                      ) : (
+                        <IconSend size={20} />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            </div>
           </div>
         )}
       </div>

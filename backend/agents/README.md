@@ -191,7 +191,7 @@ Agents can be configured with custom LLM settings:
 
 ```python
 llm_config = {
-    "model": "gemini-2.0-flash-exp",
+    "model": "gemini-2.5-flash",
     "temperature": 0.3,
     "max_tokens": 4096
 }

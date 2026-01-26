@@ -140,13 +140,129 @@ export default function ComplianceManager() {
     region: '',
   });
 
-  // Fetch compliances from backend API on mount
+  // Load compliances from localStorage or default data on mount
   useEffect(() => {
-    fetchCompliances();
+    loadCompliances();
   }, []);
 
-  const fetchCompliances = async () => {
+  // Safety check: if compliances array is empty after loading, force load defaults
+  useEffect(() => {
+    if (!isLoading && compliances.length === 0) {
+      console.warn('Compliances array is empty, loading defaults...');
+      setCompliances(defaultCompliances);
+      if (defaultCompliances.length > 0) {
+        setSelectedCompliance(defaultCompliances[0]);
+      }
+      try {
+        localStorage.setItem('compliances', JSON.stringify(defaultCompliances));
+      } catch (error) {
+        console.warn('Error saving defaults to localStorage:', error);
+      }
+    }
+  }, [isLoading, compliances.length]);
+
+  const loadCompliances = () => {
     setIsLoading(true);
+    
+    // First, try to load from localStorage
+    try {
+      const storedCompliances = localStorage.getItem('compliances');
+      if (storedCompliances) {
+        const parsed = JSON.parse(storedCompliances);
+        // Only use localStorage if it has valid data (not empty array)
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          console.log(`Loaded ${parsed.length} compliances from localStorage`);
+          setCompliances(parsed);
+          if (parsed.length > 0) {
+            setSelectedCompliance(parsed[0]);
+          }
+          setIsLoading(false);
+          
+          // Optionally try to fetch from server in the background (silently)
+          fetchCompliancesFromServer(true);
+          return;
+        } else {
+          // Clear empty array from localStorage
+          console.log('Found empty array in localStorage, clearing it');
+          localStorage.removeItem('compliances');
+        }
+      }
+    } catch (error) {
+      console.warn('Error loading compliances from localStorage:', error);
+      // Clear corrupted data
+      try {
+        localStorage.removeItem('compliances');
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    // If no localStorage data or empty array, use default compliances and save them
+    console.log(`Loading ${defaultCompliances.length} default compliances`);
+    setCompliances(defaultCompliances);
+    if (defaultCompliances.length > 0) {
+      setSelectedCompliance(defaultCompliances[0]);
+    }
+    
+    // Save default compliances to localStorage
+    try {
+      localStorage.setItem('compliances', JSON.stringify(defaultCompliances));
+      console.log(`Saved ${defaultCompliances.length} default compliances to localStorage`);
+    } catch (error) {
+      console.warn('Error saving compliances to localStorage:', error);
+    }
+    
+    setIsLoading(false);
+    
+    // Sync default compliances to database so they're available for governance prompts
+    syncDefaultCompliancesToDatabase(defaultCompliances);
+    
+    // Optionally try to fetch from server in the background (silently)
+    // Only if we have defaults, don't overwrite with empty server response
+    fetchCompliancesFromServer(true);
+  };
+
+  // Sync default compliances to database (for governance prompts)
+  const syncDefaultCompliancesToDatabase = async (compliancesToSync) => {
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
+      
+      // Try to sync each default compliance to database
+      for (const compliance of compliancesToSync) {
+        try {
+          // Check if compliance already exists
+          const checkRes = await fetch(`${apiBase}/compliances/${compliance.id}`).catch(() => null);
+          
+          if (!checkRes?.ok) {
+            // Compliance doesn't exist, create it
+            const createRes = await fetch(`${apiBase}/compliances`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: compliance.id,
+                name: compliance.name,
+                full_name: compliance.fullName,
+                description: compliance.description,
+                details: compliance.details,
+                category: compliance.category,
+                region: compliance.region
+              })
+            });
+            
+            if (createRes?.ok) {
+              console.log(`✅ Synced compliance "${compliance.name}" to database`);
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to sync compliance ${compliance.id}:`, error.message);
+        }
+      }
+    } catch (error) {
+      console.warn('Error syncing compliances to database:', error);
+    }
+  };
+
+  const fetchCompliancesFromServer = async (silent = false) => {
     try {
       const apiBase = import.meta.env.VITE_API_BASE_URL || '/api';
       const response = await fetch(`${apiBase}/compliances`);
@@ -156,6 +272,14 @@ export default function ComplianceManager() {
       }
 
       const data = await response.json();
+      
+      // Only update if server returns valid data (not empty array)
+      if (!Array.isArray(data) || data.length === 0) {
+        if (!silent) {
+          console.warn('Server returned empty compliances array, keeping local data');
+        }
+        return;
+      }
       
       // Transform backend format to frontend format
       const transformedCompliances = data.map(compliance => ({
@@ -169,20 +293,30 @@ export default function ComplianceManager() {
         lastUpdated: compliance.updated_at || compliance.created_at
       }));
       
-      setCompliances(transformedCompliances);
+      // Update state and save to localStorage only if we have valid data
       if (transformedCompliances.length > 0) {
+        setCompliances(transformedCompliances);
         setSelectedCompliance(transformedCompliances[0]);
+        
+        // Save to localStorage
+        try {
+          localStorage.setItem('compliances', JSON.stringify(transformedCompliances));
+        } catch (error) {
+          console.warn('Error saving compliances to localStorage:', error);
+        }
       }
     } catch (error) {
-      console.error('Error fetching compliances:', error);
-      // Fallback to default compliances
-      setCompliances(defaultCompliances);
-      if (defaultCompliances.length > 0) {
-        setSelectedCompliance(defaultCompliances[0]);
+      // Only log error if not in silent mode
+      if (!silent) {
+        console.error('Error fetching compliances:', error);
       }
-    } finally {
-      setIsLoading(false);
+      // Don't change compliances if server fetch fails - keep using local/default data
     }
+  };
+
+  const fetchCompliances = () => {
+    // Public method that tries server first (non-silent)
+    fetchCompliancesFromServer(false);
   };
 
   const handleCreateCompliance = async () => {
@@ -226,8 +360,18 @@ export default function ComplianceManager() {
         lastUpdated: compliance.updated_at || compliance.created_at
       };
 
-      // Refresh compliances list
-      await fetchCompliances();
+      // Refresh compliances list from server
+      await fetchCompliancesFromServer(false);
+      
+      // Also update localStorage
+      try {
+        const currentCompliances = JSON.parse(localStorage.getItem('compliances') || '[]');
+        const updatedCompliances = [...currentCompliances, transformedCompliance];
+        localStorage.setItem('compliances', JSON.stringify(updatedCompliances));
+      } catch (error) {
+        console.warn('Error updating localStorage:', error);
+      }
+      
       setSelectedCompliance(transformedCompliance);
       
       setNewCompliance({

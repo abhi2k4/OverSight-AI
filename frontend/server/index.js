@@ -1371,7 +1371,7 @@ Return ONLY valid JSON, no markdown formatting, no code blocks.`;
         systemPrompt: agentMetadata.systemPrompt,
         tools: [],
         llmConfig: {
-          model: 'gemini-2.0-flash-exp',
+          model: 'gemini-2.5-flash',
           temperature: 0.3,
           max_tokens: 4096,
         },
@@ -1425,7 +1425,7 @@ app.post('/agents/:id/metadata', async (req, res) => {
           systemPrompt: metadata.specializationPrompt || metadata.systemPrompt || 'You are a helpful AI assistant.',
           tools: [],
           llmConfig: {
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-2.5-flash',
             temperature: 0.3,
             max_tokens: 4096,
           },

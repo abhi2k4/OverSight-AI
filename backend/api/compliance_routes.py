@@ -61,7 +61,23 @@ async def list_compliances(
         query = query.filter(Compliance.category == category)
     
     compliances = query.order_by(Compliance.created_at.desc()).all()
-    return compliances
+    
+    # Convert datetime objects to ISO format strings for Pydantic
+    result = []
+    for compliance in compliances:
+        result.append(ComplianceResponse(
+            id=compliance.id,
+            name=compliance.name,
+            full_name=compliance.full_name,
+            description=compliance.description,
+            details=compliance.details,
+            category=compliance.category,
+            region=compliance.region,
+            created_at=compliance.created_at.isoformat() if compliance.created_at else "",
+            updated_at=compliance.updated_at.isoformat() if compliance.updated_at else ""
+        ))
+    
+    return result
 
 
 @router.get("/{compliance_id}", response_model=ComplianceResponse)

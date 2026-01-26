@@ -8,6 +8,9 @@ import {
   IconServer,
   IconCheck,
   IconAlertCircle,
+  IconChevronDown,
+  IconChevronUp,
+  IconSettings,
 } from '@tabler/icons-react'
 import {
   Dialog,
@@ -21,6 +24,13 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Progress } from './ui/progress'
 import { Badge } from './ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select'
 import { useToast } from '../hooks/use-toast'
 import { cn } from '@/lib/utils'
 
@@ -31,6 +41,9 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
   const [activeTab, setActiveTab] = useState('files') // 'files' or 'connectors'
   const [selectedFiles, setSelectedFiles] = useState([])
   const [entityTypes, setEntityTypes] = useState({}) // file name -> entity type
+  const [sensitivities, setSensitivities] = useState({}) // file name -> sensitivity
+  const [compliances, setCompliances] = useState({}) // file name -> compliance array
+  const [expandedFiles, setExpandedFiles] = useState({}) // file name -> boolean (for advanced options)
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
@@ -38,6 +51,9 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
   const [jobStatus, setJobStatus] = useState(null)
   const fileInputRef = useRef(null)
   const { toast } = useToast()
+
+  const SENSITIVITY_OPTIONS = ['Low', 'Medium', 'High', 'Critical']
+  const COMPLIANCE_OPTIONS = ['GDPR', 'HIPAA', 'PCI-DSS', 'CCPA', 'SOC 2']
 
   // Connector form states (placeholders)
   const [sqlConfig, setSqlConfig] = useState({
@@ -109,6 +125,20 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
           [file.name]: file.name.replace(/\.[^/.]+$/, '') // Remove extension
         }))
       }
+      // Set default sensitivity to 'Low'
+      if (!sensitivities[file.name]) {
+        setSensitivities(prev => ({
+          ...prev,
+          [file.name]: 'Low'
+        }))
+      }
+      // Set default compliance to empty array
+      if (!compliances[file.name]) {
+        setCompliances(prev => ({
+          ...prev,
+          [file.name]: []
+        }))
+      }
     })
 
     if (errors.length > 0) {
@@ -130,6 +160,48 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
       const newTypes = { ...prev }
       delete newTypes[fileName]
       return newTypes
+    })
+    setSensitivities(prev => {
+      const newSensitivities = { ...prev }
+      delete newSensitivities[fileName]
+      return newSensitivities
+    })
+    setCompliances(prev => {
+      const newCompliances = { ...prev }
+      delete newCompliances[fileName]
+      return newCompliances
+    })
+    setExpandedFiles(prev => {
+      const newExpanded = { ...prev }
+      delete newExpanded[fileName]
+      return newExpanded
+    })
+  }
+
+  const toggleAdvancedOptions = (fileName) => {
+    setExpandedFiles(prev => ({
+      ...prev,
+      [fileName]: !prev[fileName]
+    }))
+  }
+
+  const handleSensitivityChange = (fileName, sensitivity) => {
+    setSensitivities(prev => ({
+      ...prev,
+      [fileName]: sensitivity
+    }))
+  }
+
+  const handleComplianceToggle = (fileName, compliance) => {
+    setCompliances(prev => {
+      const current = prev[fileName] || []
+      const updated = current.includes(compliance)
+        ? current.filter(c => c !== compliance)
+        : [...current, compliance]
+      return {
+        ...prev,
+        [fileName]: updated
+      }
     })
   }
 
@@ -158,6 +230,14 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
       // Add entity types as comma-separated string
       const entityTypeList = selectedFiles.map(f => entityTypes[f.name] || f.name.replace(/\.[^/.]+$/, ''))
       formData.append('entity_types', entityTypeList.join(','))
+
+      // Add sensitivities as comma-separated string
+      const sensitivityList = selectedFiles.map(f => sensitivities[f.name] || 'Low')
+      formData.append('sensitivities', sensitivityList.join(','))
+
+      // Add compliances as JSON string (array of arrays)
+      const complianceList = selectedFiles.map(f => compliances[f.name] || [])
+      formData.append('compliances', JSON.stringify(complianceList))
 
       const response = await fetch(`${apiBase}/ingest/upload`, {
         method: 'POST',
@@ -226,6 +306,9 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
           // Reset form
           setSelectedFiles([])
           setEntityTypes({})
+          setSensitivities({})
+          setCompliances({})
+          setExpandedFiles({})
           setJobId(null)
           setJobStatus(null)
           setUploadProgress(0)
@@ -275,6 +358,9 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
     if (!isUploading) {
       setSelectedFiles([])
       setEntityTypes({})
+      setSensitivities({})
+      setCompliances({})
+      setExpandedFiles({})
       setJobId(null)
       setJobStatus(null)
       setUploadProgress(0)
@@ -335,16 +421,18 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
         {/* File Upload Tab */}
         {activeTab === 'files' && (
           <div className="space-y-6">
-            {/* Drag and Drop Area */}
+            {/* Upload Area - Squared with Upload Button Only */}
             <div
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
               className={cn(
-                'relative border-2 border-dashed rounded-xl p-8 text-center transition-all duration-200',
+                'relative border-2 border-dashed rounded-lg transition-all duration-200',
+                'flex items-center justify-center',
+                'w-64 h-64 mx-auto',
                 isDragging
                   ? 'border-blue-500 bg-blue-50'
-                  : 'border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/50'
+                  : 'border-slate-300 bg-white hover:border-slate-400'
               )}
             >
               <input
@@ -357,39 +445,30 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
                 className="hidden"
                 id="upload-file-input"
               />
-              <div className="space-y-4">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                  <IconUpload size={32} className="text-blue-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-900 mb-2">
-                    Drag and drop files here
-                  </p>
-                  <p className="text-sm text-slate-600 mb-4">or</p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="cursor-pointer"
-                    disabled={isUploading}
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      console.log('Browse button clicked, fileInputRef:', fileInputRef.current)
-                      if (fileInputRef.current) {
-                        fileInputRef.current.click()
-                      } else {
-                        console.error('fileInputRef is null')
-                      }
-                    }}
-                  >
-                    <IconUpload size={18} />
-                    Browse Files
-                  </Button>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Supported: CSV, JSON, SQLite (Max 100MB per file)
-                </p>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className={cn(
+                  'cursor-pointer border-2',
+                  'px-6 py-4 text-sm font-medium',
+                  'bg-white hover:bg-slate-50',
+                  'border-slate-300 hover:border-blue-500',
+                  'transition-all duration-200',
+                  isDragging && 'border-blue-500 bg-blue-50'
+                )}
+                disabled={isUploading}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  if (fileInputRef.current) {
+                    fileInputRef.current.click()
+                  }
+                }}
+              >
+                <IconUpload size={18} className="mr-2" />
+                Upload Files
+              </Button>
             </div>
 
             {/* Selected Files List */}
@@ -398,42 +477,128 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
                 <h3 className="text-sm font-semibold text-slate-900">
                   Selected Files ({selectedFiles.length})
                 </h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="space-y-2 max-h-96 overflow-y-auto">
                   {selectedFiles.map((file) => (
                     <div
                       key={`${file.name}-${file.size}`}
-                      className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"
+                      className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden"
                     >
-                      <IconFileText size={20} className="text-slate-400 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">
-                          {file.name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {(file.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
+                      {/* File Header */}
+                      <div className="flex items-center gap-3 p-3">
+                        <IconFileText size={20} className="text-slate-400 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-slate-900 truncate">
+                            {file.name}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                        </div>
+                        <Input
+                          placeholder="Entity type"
+                          value={entityTypes[file.name] || ''}
+                          onChange={(e) =>
+                            setEntityTypes(prev => ({
+                              ...prev,
+                              [file.name]: e.target.value
+                            }))
+                          }
+                          className="w-32 h-8 text-xs"
+                          disabled={isUploading}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleAdvancedOptions(file.name)}
+                          disabled={isUploading}
+                          className="h-8 px-2"
+                        >
+                          <IconSettings size={16} className="mr-1" />
+                          {expandedFiles[file.name] ? (
+                            <IconChevronUp size={14} />
+                          ) : (
+                            <IconChevronDown size={14} />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(file.name)}
+                          disabled={isUploading}
+                          className="h-8 w-8 p-0"
+                        >
+                          <IconX size={16} />
+                        </Button>
                       </div>
-                      <Input
-                        placeholder="Entity type"
-                        value={entityTypes[file.name] || ''}
-                        onChange={(e) =>
-                          setEntityTypes(prev => ({
-                            ...prev,
-                            [file.name]: e.target.value
-                          }))
-                        }
-                        className="w-32 h-8 text-xs"
-                        disabled={isUploading}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeFile(file.name)}
-                        disabled={isUploading}
-                        className="h-8 w-8 p-0"
-                      >
-                        <IconX size={16} />
-                      </Button>
+
+                      {/* Advanced Options (Expandable) */}
+                      {expandedFiles[file.name] && (
+                        <div className="px-3 pb-3 pt-2 border-t border-slate-200 bg-white space-y-3">
+                          {/* Sensitivity Dropdown */}
+                          <div>
+                            <label className="text-xs font-medium text-slate-700 mb-1.5 block">
+                              Sensitivity
+                            </label>
+                            <Select
+                              value={sensitivities[file.name] || 'Low'}
+                              onValueChange={(value) => handleSensitivityChange(file.name, value)}
+                              disabled={isUploading}
+                            >
+                              <SelectTrigger className="h-8 text-xs">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {SENSITIVITY_OPTIONS.map(option => (
+                                  <SelectItem key={option} value={option}>
+                                    {option}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Compliance Multi-Select */}
+                          <div>
+                            <label className="text-xs font-medium text-slate-700 mb-1.5 block">
+                              Compliance
+                            </label>
+                            <div className="space-y-2">
+                              {COMPLIANCE_OPTIONS.map(option => {
+                                const isSelected = (compliances[file.name] || []).includes(option)
+                                return (
+                                  <button
+                                    key={option}
+                                    type="button"
+                                    onClick={() => handleComplianceToggle(file.name, option)}
+                                    disabled={isUploading}
+                                    className={cn(
+                                      'w-full text-left px-3 py-2 rounded-md text-xs border transition-colors',
+                                      isSelected
+                                        ? 'bg-blue-50 border-blue-300 text-blue-700'
+                                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                    )}
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <div className={cn(
+                                        'w-4 h-4 rounded border-2 flex items-center justify-center',
+                                        isSelected ? 'bg-blue-600 border-blue-600' : 'border-slate-300'
+                                      )}>
+                                        {isSelected && <IconCheck size={12} className="text-white" />}
+                                      </div>
+                                      <span>{option}</span>
+                                    </div>
+                                  </button>
+                                )
+                              })}
+                            </div>
+                            {(compliances[file.name] || []).length > 0 && (
+                              <p className="text-xs text-slate-500 mt-2">
+                                Selected: {(compliances[file.name] || []).join(', ')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -465,18 +630,7 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
         {/* Connectors Tab */}
         {activeTab === 'connectors' && (
           <div className="space-y-6">
-            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <div className="flex items-start gap-3">
-                <IconAlertCircle size={20} className="text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-amber-900">Coming Soon</p>
-                  <p className="text-xs text-amber-700 mt-1">
-                    Database connectors are currently under development. Please use file upload for now.
-                  </p>
-                </div>
-              </div>
-            </div>
-
+            
             {/* SQL Connector Form */}
             <div className="space-y-4 p-4 border border-slate-200 rounded-lg bg-slate-50/50">
               <div className="flex items-center gap-2">
@@ -579,7 +733,7 @@ export default function UploadDialog({ open, onOpenChange, onUploadComplete }) {
               ) : (
                 <>
                   <IconUpload size={18} />
-                  Upload & Process
+                  Process
                 </>
               )}
             </Button>

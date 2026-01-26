@@ -69,7 +69,22 @@ async def list_policies(
             raise HTTPException(status_code=400, detail=f"Invalid category: {category}")
     
     policies = query.order_by(Policy.created_at.desc()).all()
-    return policies
+    
+    # Convert datetime objects and enums to strings for Pydantic
+    result = []
+    for policy in policies:
+        result.append(PolicyResponse(
+            id=policy.id,
+            name=policy.name,
+            description=policy.description,
+            category=policy.category.value if hasattr(policy.category, 'value') else str(policy.category),
+            severity=policy.severity.value if hasattr(policy.severity, 'value') else str(policy.severity),
+            status=policy.status.value if hasattr(policy.status, 'value') else str(policy.status),
+            created_at=policy.created_at.isoformat() if policy.created_at else "",
+            updated_at=policy.updated_at.isoformat() if policy.updated_at else ""
+        ))
+    
+    return result
 
 
 @router.get("/{policy_id}", response_model=PolicyResponse)

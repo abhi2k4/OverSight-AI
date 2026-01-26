@@ -10,6 +10,11 @@ class EnrichmentMetadata(BaseModel):
     confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
     entities: Optional[Dict[str, Any]] = Field(None, description="Extracted entities (names, dates, amounts)")
     estimated_size: Optional[str] = Field(None, description="Estimated dataset size (e.g., '24.5 GB' or '150 MB')")
+    user_sensitivity: Optional[str] = Field(None, description="User-specified sensitivity (preserved from upload)")
+    user_compliance: Optional[List[str]] = Field(None, description="User-specified compliance frameworks (preserved from upload)")
+    
+    class Config:
+        extra = "allow"  # Allow additional fields in metadata
 
 
 class RecordInput(BaseModel):

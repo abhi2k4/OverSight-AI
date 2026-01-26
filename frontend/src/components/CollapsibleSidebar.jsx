@@ -57,6 +57,23 @@ export default function CollapsibleSidebar() {
   // Get user roles
   const userRoles = user?.roles || [];
 
+  // Get primary role for display
+  const getPrimaryRole = () => {
+    if (!userRoles || userRoles.length === 0) return 'User';
+    
+    // Priority order: org-admin > ai-engineer > data-engineer
+    if (userRoles.includes('org-admin')) return 'Organization Admin';
+    if (userRoles.includes('ai-engineer')) return 'AI Engineer';
+    if (userRoles.includes('data-engineer')) return 'Data Engineer';
+    
+    // If none match, return the first role or formatted role name
+    const firstRole = userRoles[0];
+    return firstRole
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   // Filter navigation items based on user roles
   const visibleNavItems = navItems.filter(item => {
     if (!item.checkAccess) return true; // Always show items without access check (like Dashboard)
@@ -169,9 +186,9 @@ export default function CollapsibleSidebar() {
             {!collapsed && (
               <div className="flex flex-col overflow-hidden min-w-0">
                 <span className="text-sm font-medium text-slate-900 truncate">
-                  {user?.name || 'User'}
+                  {user?.name || user?.username || 'User'}
                 </span>
-                <span className="text-xs text-slate-500 truncate">{user?.role || 'Role'}</span>
+                <span className="text-xs text-slate-500 truncate">{getPrimaryRole()}</span>
               </div>
             )}
           </div>

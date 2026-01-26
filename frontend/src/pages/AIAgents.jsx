@@ -281,7 +281,6 @@ export default function AIAgents() {
             </p>
             {/* DataHub Status Indicator */}
             <div className="flex items-center gap-2">
-              <IconDatabase size={16} className="text-purple-600" />
               {datahubStatus.loading ? (
                 <div className="flex items-center gap-1">
                   <IconLoader size={14} className="animate-spin text-slate-400" />
@@ -289,7 +288,18 @@ export default function AIAgents() {
                 </div>
               ) : (
                 <span className="text-sm text-slate-600">
-                  {datahubStatus.connected ? "Datahub context connected" : "Datahub context disconnected"}
+                  <span className="flex items-center gap-2">
+                    <span>Datahub</span>
+                    {datahubStatus.connected ? (
+                      <span className="px-2 py-0.5 rounded border border-emerald-200 bg-emerald-100 text-emerald-700 text-xs font-medium">
+                        Connected
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded border border-red-200 bg-red-100 text-red-700 text-xs font-medium">
+                        Disconnected
+                      </span>
+                    )}
+                  </span>
                 </span>
               )}
             </div>
@@ -316,10 +326,7 @@ export default function AIAgents() {
                 className="pl-10 h-11 border-slate-300 focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
-            <Button variant="outline" size="lg" className="border-slate-300">
-              <IconFilter className="w-4 h-4" />
-              Filter
-            </Button>
+            
           </div>
         </div>
 

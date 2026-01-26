@@ -136,7 +136,9 @@ Important:
         source_system: str,
         entity_type: str,
         raw_data: Dict[str, Any],
-        max_retries: int = 3
+        max_retries: int = 3,
+        user_sensitivity: str = None,
+        user_compliance: List[str] = None
     ) -> EnrichmentMetadata:
         """
         Enrich a single record using Gemini LLM with retry logic
@@ -164,7 +166,39 @@ Important:
                     config=generate_content_config,
                 )
                 
-                return self._parse_llm_response(response.text)
+                parsed_metadata = self._parse_llm_response(response.text)
+                
+                # Preserve user-specified values if provided
+                final_tags = parsed_metadata.tags.copy() if parsed_metadata.tags else []
+                
+                # If user specified compliance, preserve it and merge with AI tags
+                if user_compliance and len(user_compliance) > 0:
+                    # Remove any compliance tags that AI might have added
+                    compliance_frameworks = ['GDPR', 'HIPAA', 'CCPA', 'PCI-DSS', 'SOC 2', 'SOC2']
+                    final_tags = [tag for tag in final_tags if tag not in compliance_frameworks]
+                    # Add user-specified compliance
+                    final_tags.extend(user_compliance)
+                
+                # If user specified sensitivity, add it as a tag (if not already present)
+                if user_sensitivity:
+                    # Map sensitivity to appropriate tags if needed
+                    sensitivity_tag = user_sensitivity.lower()
+                    if sensitivity_tag not in [t.lower() for t in final_tags]:
+                        # Don't add sensitivity as a tag, but we'll store it separately
+                        pass
+                
+                # Update metadata with preserved values
+                parsed_metadata.tags = final_tags
+                
+                # Store user-specified sensitivity and compliance in metadata for later retrieval
+                metadata_dict = parsed_metadata.model_dump()
+                if user_sensitivity:
+                    metadata_dict["user_sensitivity"] = user_sensitivity
+                if user_compliance:
+                    metadata_dict["user_compliance"] = user_compliance
+                
+                # Recreate metadata with updated values
+                return EnrichmentMetadata(**metadata_dict)
                 
             except Exception as e:
                 print(f"Error calling Gemini API (attempt {attempt + 1}/{max_retries}): {e}")
@@ -175,28 +209,60 @@ Important:
                     await asyncio.sleep(wait_time)
                 else:
                     print(f"All retry attempts exhausted for {entity_type} from {source_system}")
-                    return EnrichmentMetadata(
-                        description=f"Error enriching {entity_type} record from {source_system}",
-                        tags=DEFAULT_TAGS,
-                        confidence=ERROR_CONFIDENCE_DEFAULT,
-                        estimated_size=None
-                    )
+                    # Even on error, preserve user-specified values
+                    error_tags = DEFAULT_TAGS.copy()
+                    if user_compliance and len(user_compliance) > 0:
+                        compliance_frameworks = ['GDPR', 'HIPAA', 'CCPA', 'PCI-DSS', 'SOC 2', 'SOC2']
+                        error_tags = [tag for tag in error_tags if tag not in compliance_frameworks]
+                        error_tags.extend(user_compliance)
+                    
+                    metadata_dict = {
+                        "description": f"Error enriching {entity_type} record from {source_system}",
+                        "tags": error_tags,
+                        "confidence": ERROR_CONFIDENCE_DEFAULT,
+                        "estimated_size": None
+                    }
+                    if user_sensitivity:
+                        metadata_dict["user_sensitivity"] = user_sensitivity
+                    if user_compliance:
+                        metadata_dict["user_compliance"] = user_compliance
+                    
+                    return EnrichmentMetadata(**metadata_dict)
     
     async def enrich_records_batch(
         self,
         records: List[Dict[str, Any]],
         parallel: bool = True,
-        max_concurrent: int = 5
+        max_concurrent: int = 5,
+        upload_metadata: Dict[str, Dict[str, Any]] = None
     ) -> List[Dict[str, Any]]:
-        """Enrich multiple records with parallel processing"""
+        """
+        Enrich multiple records with parallel processing
+        
+        Args:
+            records: List of records to enrich
+            parallel: Whether to process in parallel
+            max_concurrent: Maximum concurrent enrichments
+            upload_metadata: User-specified metadata by entity_type (sensitivity, compliance)
+        """
+        if upload_metadata is None:
+            upload_metadata = {}
+            
         if not parallel or len(records) == 1:
             results = []
             for record in records:
                 try:
+                    entity_type = record.get("entity_type", "")
+                    entity_meta = upload_metadata.get(entity_type, {})
+                    user_sensitivity = entity_meta.get("sensitivity")
+                    user_compliance = entity_meta.get("compliance", [])
+                    
                     metadata = await self.enrich_record(
                         source_system=record["source_system"],
                         entity_type=record["entity_type"],
-                        raw_data=record["raw_data"]
+                        raw_data=record["raw_data"],
+                        user_sensitivity=user_sensitivity,
+                        user_compliance=user_compliance if isinstance(user_compliance, list) else []
                     )
                     results.append({"success": True, "record": record, "metadata": metadata})
                 except Exception as e:
@@ -208,10 +274,17 @@ Important:
         async def enrich_with_semaphore(record: Dict[str, Any]) -> Dict[str, Any]:
             async with semaphore:
                 try:
+                    entity_type = record.get("entity_type", "")
+                    entity_meta = upload_metadata.get(entity_type, {})
+                    user_sensitivity = entity_meta.get("sensitivity")
+                    user_compliance = entity_meta.get("compliance", [])
+                    
                     metadata = await self.enrich_record(
                         source_system=record["source_system"],
                         entity_type=record["entity_type"],
-                        raw_data=record["raw_data"]
+                        raw_data=record["raw_data"],
+                        user_sensitivity=user_sensitivity,
+                        user_compliance=user_compliance if isinstance(user_compliance, list) else []
                     )
                     return {"success": True, "record": record, "metadata": metadata}
                 except Exception as e:

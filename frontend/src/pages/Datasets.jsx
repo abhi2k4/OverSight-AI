@@ -207,24 +207,144 @@ export default function Datasets() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets))
   }, [datasets])
 
+  // Fetch enriched datasets and check their status
+  const fetchEnrichedDatasets = async () => {
+    try {
+      const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
+      const response = await fetch(`${apiBase}/enriched?limit=1000`)
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch enriched datasets: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const enrichedRecords = data.records || []
+      
+      // Group enriched records by source_system and entity_type
+      const enrichedGroups = {}
+      enrichedRecords.forEach(record => {
+        const key = `${record.source_system}_${record.entity_type}`
+        if (!enrichedGroups[key]) {
+          // Check for user-specified sensitivity and compliance (preserved during enrichment)
+          const userSensitivity = record.enriched_metadata?.user_sensitivity
+          const userCompliance = record.enriched_metadata?.user_compliance || []
+          
+          // Use user-specified values if available, otherwise derive from tags
+          let sensitivity = userSensitivity
+          if (!sensitivity) {
+            // Derive from tags if user didn't specify
+            const tags = record.enriched_metadata?.tags || []
+            const tagStr = tags.join(' ').toLowerCase()
+            if (tagStr.includes('pii') || tagStr.includes('critical') || tagStr.includes('sensitive')) {
+              sensitivity = 'Critical'
+            } else if (tagStr.includes('personal') || tagStr.includes('private')) {
+              sensitivity = 'High'
+            } else if (tagStr.includes('internal') || tagStr.includes('confidential')) {
+              sensitivity = 'Medium'
+            } else {
+              sensitivity = 'Low'
+            }
+          }
+          
+          // Use user-specified compliance if available, otherwise extract from tags
+          let compliance = userCompliance.length > 0 ? userCompliance : []
+          if (compliance.length === 0) {
+            // Extract compliance from tags if user didn't specify
+            compliance = (record.enriched_metadata?.tags || []).filter(t => 
+              ['GDPR', 'HIPAA', 'PCI-DSS', 'CCPA', 'SOC 2', 'SOC2'].includes(t)
+            )
+          }
+          
+          enrichedGroups[key] = {
+            name: `${record.source_system} - ${record.entity_type}`,
+            description: record.enriched_metadata?.description || 'Enriched dataset',
+            type: 'Structured',
+            sensitivity: sensitivity,
+            records: 0,
+            size: record.enriched_metadata?.estimated_size || 'N/A',
+            lastAccessed: formatTimestamp(record.enrichment_timestamp || new Date().toISOString()),
+            status: 'active', // Enriched datasets are active
+            compliance: compliance,
+            id: key,
+            source_system: record.source_system,
+            entity_type: record.entity_type,
+            enrichmentStatus: 'completed', // Mark as enriched
+            _records: [],
+          }
+        }
+        enrichedGroups[key].records++
+        enrichedGroups[key]._records.push(record)
+      })
+      
+      return Object.values(enrichedGroups)
+    } catch (error) {
+      console.error('Error fetching enriched datasets:', error)
+      return []
+    }
+  }
+
   // Fetch ingested collections from output directory (ingestion results only)
   const fetchIngestedCollections = async () => {
     try {
       const apiBase = import.meta.env.VITE_API_BASE_URL || '/api'
-      const response = await fetch(`${apiBase}/output/collections?limit=1000`)
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch ingested collections: ${response.status}`)
+      // Fetch both ingested and enriched datasets
+      const [ingestedResponse, enrichedDatasets] = await Promise.all([
+        fetch(`${apiBase}/output/collections?limit=1000`),
+        fetchEnrichedDatasets()
+      ])
+      
+      if (!ingestedResponse.ok) {
+        throw new Error(`Failed to fetch ingested collections: ${ingestedResponse.status}`)
       }
 
-      const data = await response.json()
-      const ingestedDatasets = transformIngestedToDatasets(data.records || [])
+      const ingestedData = await ingestedResponse.json()
+      const metadata = ingestedData.metadata || {} // Get metadata from response
+      const ingestedDatasets = transformIngestedToDatasets(ingestedData.records || [], metadata)
       
-      // Merge with existing datasets, avoiding duplicates
+      // Create a map of enriched datasets by ID
+      const enrichedMap = new Map(enrichedDatasets.map(d => [d.id, d]))
+      
+      // Update ingested datasets: if enriched version exists, use it; otherwise keep ingested
+      const updatedIngested = ingestedDatasets.map(ingested => {
+        const enriched = enrichedMap.get(ingested.id)
+        if (enriched) {
+          // Dataset has been enriched, use enriched version
+          return enriched
+        }
+        // Dataset is still only ingested
+        return ingested
+      })
+      
+      // Add any enriched datasets that don't have ingested counterparts
+      const enrichedOnly = enrichedDatasets.filter(enriched => 
+        !ingestedDatasets.some(ingested => ingested.id === enriched.id)
+      )
+      
+      // Merge with existing datasets, prioritizing enriched over ingested
       setDatasets(prev => {
-        const existingNames = new Set(prev.map(d => d.name))
-        const newDatasets = ingestedDatasets.filter(d => !existingNames.has(d.name))
-        return [...prev, ...newDatasets]
+        const existingMap = new Map(prev.map(d => [d.id, d]))
+        
+        // Update existing datasets with enriched versions
+        updatedIngested.forEach(dataset => {
+          existingMap.set(dataset.id, dataset)
+        })
+        
+        // Add enriched-only datasets
+        enrichedOnly.forEach(dataset => {
+          if (!existingMap.has(dataset.id)) {
+            existingMap.set(dataset.id, dataset)
+          }
+        })
+        
+        // Keep existing datasets that aren't in the new data (default/mock datasets)
+        prev.forEach(dataset => {
+          if (!dataset.source_system && !dataset.entity_type && !existingMap.has(dataset.id)) {
+            existingMap.set(dataset.id, dataset)
+          }
+        })
+        
+        return Array.from(existingMap.values())
       })
     } catch (error) {
       console.error('Error fetching ingested collections:', error)
@@ -275,23 +395,28 @@ export default function Datasets() {
   }
 
   // Transform ingested records to dataset format (raw data, no enrichment)
-  const transformIngestedToDatasets = (ingestedRecords) => {
+  const transformIngestedToDatasets = (ingestedRecords, metadata = {}) => {
     // Group by source_system and entity_type
     const grouped = {}
     
     ingestedRecords.forEach(record => {
       const key = `${record.source_system}_${record.entity_type}`
       if (!grouped[key]) {
+        // Get metadata for this entity_type (from upload or record)
+        const entityMetadata = metadata[record.entity_type] || record.upload_metadata || {}
+        const sensitivity = entityMetadata.sensitivity || 'Low'
+        const compliance = entityMetadata.compliance || []
+        
         grouped[key] = {
           name: `${record.source_system} - ${record.entity_type}`,
           description: 'Ingested data - ready for enrichment',
           type: 'Structured',
-          sensitivity: 'Low', // Default for unenriched data
+          sensitivity: sensitivity, // Use uploaded sensitivity or default
           records: 0,
           size: 'N/A', // Will be calculated after grouping
           lastAccessed: formatTimestamp(record.enrichment_timestamp || new Date().toISOString()),
           status: 'ingested', // New status for ingested-only data
-          compliance: [], // No compliance tags for unenriched data
+          compliance: compliance, // Use uploaded compliance or empty array
           id: key, // Use composite key as ID
           source_system: record.source_system,
           entity_type: record.entity_type,
@@ -358,6 +483,19 @@ export default function Datasets() {
       fetchIngestedCollections()
     }, 2000) // Small delay to ensure backend has processed ingestion
   }
+
+  // Periodically refresh datasets to check for enrichment status updates
+  useEffect(() => {
+    // Initial fetch
+    fetchIngestedCollections()
+    
+    // Refresh every 10 seconds to check for enrichment status updates
+    const interval = setInterval(() => {
+      fetchIngestedCollections()
+    }, 10000)
+    
+    return () => clearInterval(interval)
+  }, [])
 
   // Fetch ingested collections on mount
   useEffect(() => {
@@ -648,7 +786,14 @@ export default function Datasets() {
       width: '140px',
       nowrap: true,
       render: (row) => {
-        // Show enrichment status for ingested data
+        // Show enrichment status
+        if (row.enrichmentStatus === 'completed' || (row.status === 'active' && row.enriched_metadata)) {
+          return (
+            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">
+              Enriched
+            </Badge>
+          )
+        }
         if (row.status === 'ingested' || row.enrichmentStatus === 'pending') {
           return (
             <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">

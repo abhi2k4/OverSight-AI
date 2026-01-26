@@ -296,6 +296,17 @@ async def query_agent(
             except Exception as e:
                 logger.warning(f"Failed to create Langfuse trace: {e}")
         
+        # ========== AGENT INPUT LOGGING ==========
+        logger.info("=" * 80)
+        logger.info("🤖 AGENT QUERY - INPUT")
+        logger.info("=" * 80)
+        logger.info(f"Agent ID: {agent_id or 'N/A'}")
+        logger.info(f"Agent Name: {agent.name}")
+        logger.info(f"Agent Type: {agent.agent_type}")
+        logger.info(f"Session ID: {session_id or 'N/A'}")
+        logger.info(f"\n📝 USER QUERY:\n{request.query}")
+        logger.info("=" * 80)
+        
         # Process query
         result = await agent.process_query(
             query=request.query,
@@ -359,6 +370,19 @@ async def query_agent(
                 langfuse.flush()
             except Exception as e:
                 logger.warning(f"Failed to update Langfuse trace: {e}")
+        
+        # ========== AGENT OUTPUT LOGGING ==========
+        response_text = result.get("response", "")
+        execution_time = result.get("execution_time_ms", 0)
+        logger.info("\n" + "=" * 80)
+        logger.info("✅ AGENT QUERY - OUTPUT")
+        logger.info("=" * 80)
+        logger.info(f"Agent: {agent.name} ({agent.agent_type})")
+        logger.info(f"Execution Time: {execution_time}ms")
+        logger.info(f"\n💬 AGENT RESPONSE:\n{response_text}")
+        logger.info(f"\n📊 Response Length: {len(response_text)} characters")
+        logger.info(f"Success: {result.get('success', True)}")
+        logger.info("=" * 80 + "\n")
         
         # Create or get conversation for logging
         if not conversation_id:

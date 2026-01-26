@@ -61,7 +61,7 @@ export async function createAgent({
       agentType,
       systemPrompt: systemPrompt || 'You are a helpful AI assistant.',
       llmConfig: {
-        model: llmConfig.model || 'gemini-2.0-flash-exp',
+        model: llmConfig.model || 'gemini-2.5-flash',
         temperature: llmConfig.temperature || 0.3,
         maxTokens: llmConfig.max_tokens || 4096,
       },
@@ -166,7 +166,7 @@ export async function recreateAgentFromMetadata(id) {
       systemPrompt: metadata.systemPrompt || metadata.specializationPrompt || 'You are a helpful AI assistant.',
       tools: [],
       llmConfig: {
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash',
         temperature: 0.3,
         max_tokens: 4096,
       },
@@ -229,6 +229,20 @@ export async function queryAgent(agentId, query, sessionId = null, chatHistory =
     if (!geminiClient) {
       throw new Error('Gemini client not initialized');
     }
+
+    // ========== AGENT INPUT LOGGING ==========
+    console.log('\n' + '='.repeat(80));
+    console.log('🤖 AGENT QUERY - INPUT');
+    console.log('='.repeat(80));
+    console.log(`Agent ID: ${agentId}`);
+    console.log(`Agent Name: ${agent.name}`);
+    console.log(`Agent Type: ${agent.agentType}`);
+    console.log(`Session ID: ${sessionId || 'N/A'}`);
+    console.log(`\n📝 USER QUERY:\n${query}`);
+    console.log('='.repeat(80) + '\n');
+    
+    // Log that we're about to fetch governance data
+    console.log('[Governance] Fetching policies and compliances...');
 
     const startTime = Date.now();
 
@@ -322,58 +336,80 @@ export async function queryAgent(agentId, query, sessionId = null, chatHistory =
     let governancePrompt = '';
     try {
       const apiBase = process.env.API_BASE_URL || 'http://127.0.0.1:8000';
+      console.log(`[Governance] Fetching from: ${apiBase}/api/policies and ${apiBase}/api/compliances`);
+      
       const [policiesRes, compliancesRes] = await Promise.all([
         fetch(`${apiBase}/api/policies?status=active`).catch(() => null),
         fetch(`${apiBase}/api/compliances`).catch(() => null)
       ]);
       
+      let policies = [];
+      let compliances = [];
+      
       if (policiesRes?.ok) {
-        const policies = await policiesRes.json();
-        if (compliancesRes?.ok) {
-          const compliances = await compliancesRes.json();
-          
-          // Build governance prompt
-          if (policies.length > 0 || compliances.length > 0) {
-            governancePrompt = '\n\n=== GOVERNANCE POLICIES & COMPLIANCE REQUIREMENTS ===\n\n';
-            
-            if (policies.length > 0) {
-              governancePrompt += 'POLICIES:\n';
-              policies.forEach(policy => {
-                governancePrompt += `- ${policy.name} (${policy.category}, ${policy.severity}): ${policy.description}\n`;
-              });
-              governancePrompt += '\n';
-            }
-            
-            if (compliances.length > 0) {
-              governancePrompt += 'COMPLIANCE FRAMEWORKS:\n';
-              compliances.forEach(compliance => {
-                governancePrompt += `- ${compliance.name} (${compliance.full_name}): ${compliance.description}\n`;
-                if (compliance.details) {
-                  const details = compliance.details.length > 500 
-                    ? compliance.details.substring(0, 500) + '...' 
-                    : compliance.details;
-                  governancePrompt += `  Key Requirements: ${details}\n`;
-                }
-              });
-              governancePrompt += '\n';
-            }
-            
-            governancePrompt += 'IMPORTANT: You must comply with all policies and compliance requirements above. ';
-            governancePrompt += 'If your response or actions would violate any policy, you must indicate this clearly. ';
-            governancePrompt += 'Report any potential violations immediately. ';
-            governancePrompt += 'When responding, ensure your answer adheres to these governance requirements.\n';
-          }
+        policies = await policiesRes.json();
+        console.log(`[Governance] ✅ Fetched ${policies.length} policies`);
+      } else {
+        console.warn(`[Governance] ❌ Failed to fetch policies: ${policiesRes?.status || 'No response'}`);
+      }
+      
+      if (compliancesRes?.ok) {
+        compliances = await compliancesRes.json();
+        console.log(`[Governance] ✅ Fetched ${compliances.length} compliances`);
+      } else {
+        console.warn(`[Governance] ❌ Failed to fetch compliances: ${compliancesRes?.status || 'No response'}`);
+      }
+      
+      // Build governance prompt with whatever data is available
+      if (policies.length > 0 || compliances.length > 0) {
+        governancePrompt = '\n\n=== GOVERNANCE POLICIES & COMPLIANCE REQUIREMENTS ===\n\n';
+        
+        if (policies.length > 0) {
+          governancePrompt += 'POLICIES:\n';
+          policies.forEach(policy => {
+            governancePrompt += `- ${policy.name} (${policy.category}, ${policy.severity}): ${policy.description}\n`;
+          });
+          governancePrompt += '\n';
         }
+        
+        if (compliances.length > 0) {
+          governancePrompt += 'COMPLIANCE FRAMEWORKS:\n';
+          compliances.forEach(compliance => {
+            governancePrompt += `- ${compliance.name} (${compliance.full_name}): ${compliance.description}\n`;
+            if (compliance.details) {
+              const details = compliance.details.length > 500 
+                ? compliance.details.substring(0, 500) + '...' 
+                : compliance.details;
+              governancePrompt += `  Key Requirements: ${details}\n`;
+            }
+          });
+          governancePrompt += '\n';
+        }
+        
+        governancePrompt += 'IMPORTANT: You must comply with all policies and compliance requirements above. ';
+        governancePrompt += 'If your response or actions would violate any policy, you must indicate this clearly. ';
+        governancePrompt += 'When responding, ensure your answer adheres to these governance requirements.\n';
+        
+        console.log(`[Governance] ✅ Built governance prompt (${governancePrompt.length} chars)`);
+      } else {
+        console.warn('[Governance] ⚠️ No policies or compliances found - governance prompt will be empty');
       }
     } catch (error) {
-      console.warn('Failed to fetch policies/compliances for governance:', error.message);
+      console.error('[Governance] ❌ Error fetching policies/compliances:', error.message);
     }
     
-    // Call Gemini API directly
-    // Enhance system prompt to ensure natural language responses and include governance
     const enhancedSystemPrompt = `${agent.systemPrompt}${governancePrompt}
 
 IMPORTANT: Always respond in natural, conversational language. Use complete sentences and a friendly, helpful tone. Avoid structured formats, bullet points, or technical jargon unless the user specifically requests them. Communicate like a helpful colleague having a conversation.`;
+    
+    // ========== SYSTEM PROMPT LOGGING ==========
+    if (governancePrompt) {
+      console.log('\n' + '='.repeat(80));
+      console.log('📋 GOVERNANCE PROMPT INJECTED');
+      console.log('='.repeat(80));
+      console.log(governancePrompt);
+      console.log('='.repeat(80) + '\n');
+    }
     
     const config = {
       systemInstruction: [
@@ -383,7 +419,11 @@ IMPORTANT: Always respond in natural, conversational language. Use complete sent
       ],
     };
 
-    const model = agent.llmConfig.model || 'gemini-2.0-flash-exp';
+    // Use a more stable model name - fallback to gemini-1.5-flash if 2.0-flash-exp fails
+    let model = agent.llmConfig.model || 'gemini-2.5-flash';
+    
+    if (model === 'gemini-2.5-flash') {
+    }
     
     // Create generation span in Langfuse
     if (trace) {
@@ -399,22 +439,68 @@ IMPORTANT: Always respond in natural, conversational language. Use complete sent
       });
     }
     
-    const response = await geminiClient.models.generateContentStream({
-      model,
-      config,
-      contents,
-    });
-
-    // Stream the response
+    // Retry logic for API calls
+    let response = null;
     let fullText = '';
-    for await (const chunk of response) {
-      if (chunk.text) {
-        fullText += chunk.text;
+    const maxRetries = 2;
+    let lastError = null;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // On retry, try with a more stable model
+        if (attempt > 0 && model === 'gemini-2.5-flash') {
+          model = 'gemini-1.5-flash';
+          console.log(`[Agent Query] Retrying with fallback model: ${model}`);
+        }
+        
+        console.log(`[Agent Query] Attempt ${attempt + 1}: Calling Gemini API with model: ${model}`);
+        console.log(`[Agent Query] Contents length: ${contents.length}, Config:`, JSON.stringify(config, null, 2).substring(0, 200));
+        
+        response = await geminiClient.models.generateContentStream({
+          model,
+          config,
+          contents,
+        });
+
+        // Stream the response
+        fullText = '';
+        for await (const chunk of response) {
+          if (chunk.text) {
+            fullText += chunk.text;
+          }
+        }
+        
+        // Success - break out of retry loop
+        break;
+      } catch (error) {
+        lastError = error;
+        console.error(`[Agent Query] Attempt ${attempt + 1} failed:`, error.message);
+        console.error(`[Agent Query] Error details:`, error);
+        
+        // If it's the last attempt, throw the error
+        if (attempt === maxRetries) {
+          throw new Error(`Failed to query Gemini API after ${maxRetries + 1} attempts: ${error.message}. Original error: ${error}`);
+        }
+        
+        // Wait before retrying (exponential backoff)
+        const waitTime = Math.pow(2, attempt) * 1000; // 1s, 2s
+        console.log(`[Agent Query] Waiting ${waitTime}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
       }
     }
 
     const responseText = fullText.trim() || 'No response generated';
     const executionTime = Date.now() - startTime;
+    
+    // ========== AGENT OUTPUT LOGGING ==========
+    console.log('\n' + '='.repeat(80));
+    console.log('✅ AGENT QUERY - OUTPUT');
+    console.log('='.repeat(80));
+    console.log(`Agent: ${agent.name} (${agent.agentType})`);
+    console.log(`Execution Time: ${executionTime}ms`);
+    console.log(`\n💬 AGENT RESPONSE:\n${responseText}`);
+    console.log(`\n📊 Response Length: ${responseText.length} characters`);
+    console.log('='.repeat(80) + '\n');
     
     // Estimate token usage (rough approximation: 1 token ≈ 4 characters)
     const inputTokens = Math.ceil(enhancedQuery.length / 4);

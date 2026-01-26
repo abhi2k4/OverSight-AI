@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   IconDatabase,
   IconRefresh,
@@ -89,6 +90,7 @@ export default function MetadataManager() {
   const [enrichedDatasets, setEnrichedDatasets] = useState([])
   const [activeTab, setActiveTab] = useState('queue') // 'queue', 'enriched', or 'sources'
   const { toast } = useToast()
+  const navigate = useNavigate()
 
   // New source form state
   const [newSource, setNewSource] = useState({
@@ -814,11 +816,24 @@ export default function MetadataManager() {
             
             {enrichedDatasets.length > 0 ? (
               <div className="space-y-4">
-                {enrichedDatasets.map((dataset) => (
-                  <div
-                    key={dataset.name}
-                    className="p-4 border border-slate-200 rounded-lg hover:border-emerald-300 transition-colors"
-                  >
+                {enrichedDatasets.map((dataset) => {
+                  // Create dataset ID for navigation
+                  const datasetId = `${dataset.source_system}_${dataset.entity_type}`
+                  
+                  return (
+                    <div
+                      key={dataset.name}
+                      onClick={() => {
+                        if (dataset.source_system && dataset.entity_type) {
+                          const params = new URLSearchParams({
+                            source_system: dataset.source_system,
+                            entity_type: dataset.entity_type
+                          })
+                          navigate(`/datasets/${datasetId}?${params.toString()}`)
+                        }
+                      }}
+                      className="p-4 border border-slate-200 rounded-lg hover:border-emerald-300 transition-colors cursor-pointer hover:shadow-md"
+                    >
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
@@ -863,7 +878,8 @@ export default function MetadataManager() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             ) : (
               <div className="text-center py-12">
