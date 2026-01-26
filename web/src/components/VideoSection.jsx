@@ -41,7 +41,7 @@ const VideoSection = () => {
         viewport={{ once: true, amount: 0.3 }}
         className="max-w-6xl mx-auto relative z-10"
       >
-        {/* Header */}
+        {/* Header */}S
         <div className="text-center mb-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -51,7 +51,7 @@ const VideoSection = () => {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7C3AED]/10 border border-[#7C3AED]/20 mb-6"
           >
             <IconPlayerPlay size={16} className="text-[#7C3AED]" />
-            <span className="text-sm font-medium text-[#7C3AED]">Watch Demo</span>
+            <span className="text-sm font-medium text-[#7C3AED]">OverSight AI</span>
           </motion.div>
           
           <motion.h2
@@ -61,7 +61,7 @@ const VideoSection = () => {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="text-4xl md:text-5xl font-bold tracking-tight mb-4"
           >
-            See OverSight in Action
+            A Birds'-Eye View for Data & AI across Enterprise
           </motion.h2>
           
           <motion.p

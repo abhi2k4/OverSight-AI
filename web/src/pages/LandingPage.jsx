@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { ReactLenis } from 'lenis/react';
 import { 
   IconArrowRight,
   IconStack,
@@ -101,6 +102,31 @@ const AccordionItem = ({ question, answer, isOpen, onClick }) => {
   );
 };
 
+// Shadcn-like Button Component
+const Button = ({ className, variant = "default", size = "default", ...props }) => {
+  const variants = {
+    default: "bg-[#7C3AED] text-white hover:bg-[#6D28D9]",
+    destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+    outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+    ghost: "hover:bg-accent hover:text-accent-foreground",
+    link: "text-primary underline-offset-4 hover:underline",
+    white: "bg-white text-[#7C3AED] hover:bg-gray-100"
+  }
+  const sizes = {
+    default: "h-10 px-4 py-2",
+    sm: "h-9 rounded-md px-3",
+    lg: "h-11 rounded-md px-8",
+    icon: "h-10 w-10",
+  }
+  return (
+    <button 
+      className={`inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
+      {...props}
+    />
+  )
+}
+
 export default function LandingPage() {
   const [theme, setTheme] = useState(() => {
     // Check localStorage or system preference
@@ -114,44 +140,42 @@ export default function LandingPage() {
     return 'light';
   });
   const [openAccordion, setOpenAccordion] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Apply theme to document root
   useEffect(() => {
-    console.log('Theme changed to:', theme);
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
-      console.log('Applied dark mode, classList:', document.documentElement.classList.toString());
     } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
-      console.log('Applied light mode, classList:', document.documentElement.classList.toString());
     }
   }, [theme]);
 
   const toggleTheme = () => {
-    console.log('Toggle clicked, current theme:', theme);
-    setTheme(prevTheme => {
-      const newTheme = prevTheme === 'light' ? 'dark' : 'light';
-      console.log('Setting new theme:', newTheme);
-      return newTheme;
-    });
+    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
   };
 
   const toggleAccordion = (index) => {
     setOpenAccordion(openAccordion === index ? null : index);
   };
 
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
   const navItems = [
     { name: 'Home', link: '#hero' },
     { name: 'Features', link: '#features' },
-    { name: 'Docs', link: 'https://oversight-docs.vercel.app/docs' },
+    { name: 'Docs', link: 'https://oversight-docs.vercel.app/docs', external: true },
     { name: 'FAQ', link: '#faq' }
   ];
 
   return (
-    <div className="min-h-screen font-sans selection:bg-primary/20">
-      <div className="max-w-full mx-auto border-x min-h-screen relative bg-background text-foreground transition-colors duration-300">
+    <ReactLenis root>
+      <div className="min-h-screen font-sans selection:bg-primary/20">
+        <div className="max-w-full mx-auto border-x min-h-screen relative bg-background text-foreground transition-colors duration-300">
         
         {/* Resizable Navbar with Theme */}
         <Navbar className="top-0">
@@ -178,12 +202,7 @@ export default function LandingPage() {
 
               <div className="flex items-center gap-3 ml-auto relative z-50">
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Button clicked!');
-                    toggleTheme();
-                  }}
+                  onClick={toggleTheme}
                   className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors cursor-pointer"
                   aria-label="Toggle theme"
                 >
@@ -212,21 +231,16 @@ export default function LandingPage() {
               </a>
               <div className="flex items-center gap-2 relative z-50">
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    console.log('Mobile button clicked!');
-                    toggleTheme();
-                  }}
+                  onClick={toggleTheme}
                   className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors cursor-pointer"
                   aria-label="Toggle theme"
                 >
                   {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
                 </button>
-                <MobileNavToggle isOpen={false} />
+                <MobileNavToggle isOpen={mobileMenuOpen} />
               </div>
             </MobileNavHeader>
-            <MobileNavMenu isOpen={false} onClose={() => {}}>
+            <MobileNavMenu isOpen={mobileMenuOpen} onClose={closeMobileMenu}>
               <div className="w-full space-y-4">
                 {navItems.map((item) => (
                   <a
@@ -234,12 +248,18 @@ export default function LandingPage() {
                     href={item.link}
                     target={item.external ? "_blank" : undefined}
                     rel={item.external ? "noopener noreferrer" : undefined}
-                    className="text-muted-foreground hover:text-[#7C3AED] transition-colors text-sm font-medium"
+                    className="text-muted-foreground hover:text-[#7C3AED] transition-colors text-sm font-medium block"
+                    onClick={item.external ? undefined : closeMobileMenu}
                   >
                     {item.name}
                   </a>
                 ))}
-                <NavbarButton href="#contact" variant="primary" className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] w-full">
+                <NavbarButton 
+                  href="#contact" 
+                  variant="primary" 
+                  className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] w-full"
+                  onClick={closeMobileMenu}
+                >
                   Get Started
                 </NavbarButton>
               </div>
@@ -256,9 +276,6 @@ export default function LandingPage() {
           {/* Video Section - Introduction */}
           <VideoSection />
 
-          {/* Powered By Open Source Section - Infinite Scroll */}
-         
-
           {/* Features Section - New with Product Screenshots */}
           <FeaturesSection />
 
@@ -266,10 +283,7 @@ export default function LandingPage() {
           <section id="faq" className="py-32 px-6 bg-muted/20 border-y border-border">
                 <div className="max-w-3xl mx-auto">
                     <div className="text-center mb-16">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7C3AED]/10 border border-[#7C3AED]/20 mb-6">
-                            <IconActivity size={16} className="text-[#7C3AED]" />
-                            <span className="text-sm font-medium text-[#7C3AED]">FAQ</span>
-                        </div>
+                        {/* Badge removed for cleaner look */}
                         <h2 className="text-4xl font-bold mb-4">Frequently Asked Questions</h2>
                         <p className="text-muted-foreground">Everything you need to know about OverSight</p>
                     </div>
@@ -278,7 +292,7 @@ export default function LandingPage() {
                         {[
                             { 
                                 q: "What is an AI Agent?", 
-                                a: "An AI Agent is an autonomous system that can perceive its environment, reason about how to achieve goals, and take actions to accomplish them. OverSight provides comprehensive oversight for all your AI agents." 
+                                a: "An AI Agent is an autonomous system that can perceive its environment, reason about how to achieve goals, and pass actions to accomplish them. OverSight provides comprehensive oversight for all your AI agents." 
                             },
                             { 
                                 q: "How does OverSight work?", 
@@ -314,50 +328,47 @@ export default function LandingPage() {
                     <div className="mt-12 text-center p-8 rounded-2xl bg-card border border-border">
                         <h3 className="text-xl font-bold mb-2">Still have questions?</h3>
                         <p className="text-muted-foreground mb-6">Our team is here to help you get started with OverSight</p>
-                        <button className="px-6 py-3 rounded-xl bg-[#7C3AED] text-white font-semibold hover:bg-[#6D28D9] transition-all hover:scale-105 active:scale-95">
+                        <Button variant="default" className="bg-[#7C3AED] hover:bg-[#6D28D9]">
                             Contact Support
-                        </button>
+                        </Button>
                     </div>
                 </div>
           </section>
 
-          {/* CTA */}
-          <section className="py-32 px-6 relative overflow-hidden bg-background">
-                <div className="absolute inset-0 bg-[#7C3AED] z-0">
-                    {/* Animated subtle pattern */}
-                    <div className="absolute inset-0 opacity-10">
-                        <div className="absolute inset-0" style={{
-                            backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-                            backgroundSize: '40px 40px'
-                        }} />
-                    </div>
-                </div>
+          {/* CTA - Inspired by the provided image design */}
+          <section id="contact" className="py-32 px-6 bg-[#2563EB] relative overflow-hidden">
+                {/* Clean blue background with subtle shape hint */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1)_0%,transparent_40%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_bottom_right,transparent_0%,rgba(0,0,0,0.05)_100%)]" />
                 
                 <div className="max-w-5xl mx-auto text-center relative z-10 text-white">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 mb-8 backdrop-blur-sm">
-                        <IconArrowRight size={16} className="text-white" />
-                        <span className="text-sm font-medium text-white">Get Started Today</span>
-                    </div>
-                    
-                    <h2 className="text-5xl md:text-6xl font-bold tracking-tight mb-6">
-                        Ready to govern your AI fleet?
+                    <h2 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-10 leading-tight">
+                        Govern.<br/>Monitor. Trust.
                     </h2>
                     
-                    <p className="text-xl text-purple-100 mb-12 max-w-3xl mx-auto leading-relaxed">
-                        Join the leading teams who trust OverSight for their AI governance, monitoring, and compliance needs. Get started in minutes.
+                    <p className="text-xl md:text-2xl text-blue-100 mb-12 max-w-2xl mx-auto">
+                        Join leading enterprises in building trustworthy AI systems.
                     </p>
                     
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <button onClick={() => window.open('https://github.com/abhi2k4/GRACE_Knowcode_OverSight', '_blank')} className="h-14 px-8 rounded-xl bg-white text-[#7C3AED] font-bold text-lg hover:bg-gray-100 transition-all shadow-2xl hover:scale-105 active:scale-95 flex items-center gap-2">
-                            Get Started Now
-                            <IconBrandGithubFilled size={20} />
-                        </button>
-                        <button onClick={() => window.open('https://oversight-docs.vercel.app/docs', '_blank')} className="h-14 px-8 rounded-xl border-2 border-white/30 hover:bg-white/10 text-white font-semibold text-lg transition-all backdrop-blur-sm hover:scale-105 active:scale-95">
-                            Read Documentation
-                        </button>
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
+                        <Button 
+                            variant="white" 
+                            size="lg" 
+                            className="rounded-full h-14 px-8 text-base font-bold shadow-xl hover:scale-105 transition-all duration-300 text-[#2563EB] w-full sm:w-auto"
+                            onClick={() => window.open('https://github.com/abhi2k4/GRACE_Knowcode_OverSight', '_blank')}
+                        >
+                            Get Started
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            size="lg" 
+                            className="rounded-full h-14 px-8 text-base font-bold bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm w-full sm:w-auto"
+                            onClick={() => window.open('https://oversight-docs.vercel.app/docs', '_blank')}
+                        >
+                            View Documentation
+                        </Button>
                     </div>
-
-  
+                   
                 </div>
           </section>
 
@@ -380,23 +391,7 @@ export default function LandingPage() {
                          <p className="text-sm text-muted-foreground max-w-sm mb-6">
                              Taming Enterprise AI with unified governance, real-time monitoring, and immutable audit trails.
                          </p>
-                         <div className="flex items-center gap-3">
-                             {[
-                                 { name: 'Twitter', icon: '𝕏' },
-                                 { name: 'GitHub', icon: '⚡' },
-                                 { name: 'LinkedIn', icon: 'in' },
-                                 { name: 'Discord', icon: '◆' }
-                             ].map((social) => (
-                                 <a 
-                                     key={social.name}
-                                     href="#" 
-                                     className="w-10 h-10 rounded-lg border border-border bg-card flex items-center justify-center hover:border-[#7C3AED] hover:text-[#7C3AED] transition-all hover:scale-110"
-                                     aria-label={social.name}
-                                 >
-                                     <span className="text-sm font-bold">{social.icon}</span>
-                                 </a>
-                             ))}
-                         </div>
+                         
                      </div>
 
                      {/* Product Links */}
@@ -440,5 +435,6 @@ export default function LandingPage() {
         </main>
       </div>
     </div>
+    </ReactLenis>
   );
 }
