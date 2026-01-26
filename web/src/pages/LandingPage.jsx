@@ -345,7 +345,7 @@ export default function LandingPage() {
                             className="bg-[#7C3AED] hover:bg-[#6D28D9]"
                             onClick={() => window.location.href = 'mailto:shaikhjishan255@gmail.com?subject=Enquiry for OverSight AI&body=Hi,%0A%0AI went through your product OverSight AI and I am interested in learning more about:%0A%0A- [Please describe your use case or question here]%0A%0AThank you!'}
                         >
-                            Contact Support
+                            Contact Us
                         </Button>
                     </div>
                 </div>
