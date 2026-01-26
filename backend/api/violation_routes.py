@@ -228,3 +228,138 @@ async def update_violation_status(
         return violation
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Invalid status: {request.status}")
+
+
+@router.post("/test/create", response_model=List[ViolationResponse])
+async def create_test_violations(
+    violations: List[ViolationCreateRequest] = Body(...),
+    update_langfuse: bool = Query(True, description="Update Langfuse trace if available"),
+    db: Session = Depends(get_db)
+):
+    """
+    Create test violations directly (bypasses LLM detection).
+    Useful for testing the alerts dashboard and Langfuse integration.
+    """
+    import os
+    
+    # Initialize Langfuse if available and requested
+    langfuse = None
+    if update_langfuse:
+        try:
+            from langfuse import Langfuse
+            if os.getenv("LANGFUSE_SECRET_KEY") and os.getenv("LANGFUSE_PUBLIC_KEY"):
+                langfuse = Langfuse(
+                    secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+                    public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+                    host=os.getenv("LANGFUSE_BASE_URL", "http://localhost:3000"),
+                )
+        except ImportError:
+            logger.warning("Langfuse not installed. Skipping trace updates.")
+        except Exception as e:
+            logger.warning(f"Langfuse initialization failed: {e}")
+    
+    created_violations = []
+    
+    try:
+        for violation_data in violations:
+            # Create violation in database
+            violation = Violation(
+                agent_id=violation_data.agent_id,
+                policy_id=violation_data.policy_id,
+                compliance_id=violation_data.compliance_id,
+                violation_type=violation_data.violation_type,
+                severity=violation_data.severity.lower(),
+                description=violation_data.description,
+                query_text=violation_data.query_text,
+                response_text=violation_data.response_text,
+                langfuse_trace_id=violation_data.langfuse_trace_id,
+                status=ViolationStatus.ACTIVE
+            )
+            
+            db.add(violation)
+            created_violations.append(violation)
+        
+        db.commit()
+        
+        # Refresh all violations to get IDs
+        for v in created_violations:
+            db.refresh(v)
+        
+        # Update Langfuse traces if available
+        if langfuse and update_langfuse:
+            for violation in created_violations:
+                if violation.langfuse_trace_id:
+                    try:
+                        trace = langfuse.trace(id=violation.langfuse_trace_id)
+                        
+                        # Get existing violations for this trace
+                        existing_violations = db.query(Violation).filter(
+                            Violation.langfuse_trace_id == violation.langfuse_trace_id
+                        ).all()
+                        
+                        violations_metadata = []
+                        for v in existing_violations:
+                            violations_metadata.append({
+                                "policy_id": v.policy_id,
+                                "compliance_id": v.compliance_id,
+                                "violation_type": v.violation_type,
+                                "severity": v.severity,
+                                "description": v.description[:200] if v.description else ""
+                            })
+                        
+                        trace.update(
+                            metadata={
+                                "violations": violations_metadata,
+                                "violations_count": len(existing_violations),
+                                "test_violations": True  # Mark as test violations
+                            },
+                            level="WARNING" if violations_metadata else "DEFAULT",
+                            status_message=f"{len(existing_violations)} test violation(s) created"
+                        )
+                        langfuse.flush()
+                    except Exception as e:
+                        logger.warning(f"Failed to update Langfuse trace {violation.langfuse_trace_id}: {e}")
+        
+        logger.info(f"Created {len(created_violations)} test violation(s)")
+        
+        # Enhance violations with policy/compliance names
+        from backend.models import Policy, Compliance
+        enhanced_violations = []
+        for violation in created_violations:
+            violation_dict = {
+                "id": violation.id,
+                "agent_id": violation.agent_id,
+                "policy_id": violation.policy_id,
+                "compliance_id": violation.compliance_id,
+                "violation_type": violation.violation_type,
+                "severity": violation.severity,
+                "description": violation.description,
+                "query_text": violation.query_text,
+                "response_text": violation.response_text,
+                "langfuse_trace_id": violation.langfuse_trace_id,
+                "status": violation.status.value,
+                "detected_at": violation.detected_at.isoformat() if violation.detected_at else datetime.now().isoformat(),
+                "resolved_at": violation.resolved_at.isoformat() if violation.resolved_at else None,
+                "policy_name": None,
+                "compliance_name": None,
+            }
+            
+            # Add policy/compliance names if available
+            if violation.policy_id:
+                policy = db.query(Policy).filter(Policy.id == violation.policy_id).first()
+                if policy:
+                    violation_dict["policy_name"] = policy.name
+            
+            if violation.compliance_id:
+                compliance = db.query(Compliance).filter(Compliance.id == violation.compliance_id).first()
+                if compliance:
+                    violation_dict["compliance_name"] = compliance.name
+            
+            enhanced_violations.append(violation_dict)
+        
+        return [ViolationResponse(**v) for v in enhanced_violations]
+        
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating test violations: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to create test violations: {str(e)}")
