@@ -41,7 +41,7 @@ const VideoSection = () => {
         viewport={{ once: true, amount: 0.3 }}
         className="max-w-6xl mx-auto relative z-10"
       >
-        {/* Header */}S
+        {/* Header */}
         <div className="text-center mb-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
