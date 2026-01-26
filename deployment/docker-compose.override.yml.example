@@ -1,0 +1,22 @@
+# Example override file for local development
+# Copy this to docker-compose.override.yml and customize as needed
+
+version: '3.8'
+
+services:
+  backend:
+    volumes:
+      - ../backend:/app/backend
+      - ../scripts:/app/scripts
+    environment:
+      # Development settings
+      DEBUG: "true"
+      LOG_LEVEL: "debug"
+
+  frontend:
+    volumes:
+      - ../frontend:/app
+    environment:
+      NODE_ENV: development
+      # Enable hot reload in development
+      VITE_HMR_PORT: 5173

@@ -1,0 +1,83 @@
+{{- if and .Values.keycloak.enabled .Values.keycloakPostgres.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "oversight.fullname" . }}-keycloak-postgres
+  labels:
+    {{- include "oversight.labels" . | nindent 4 }}
+    component: keycloak-postgres
+spec:
+  serviceName: {{ include "oversight.fullname" . }}-keycloak-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "oversight.selectorLabels" . | nindent 6 }}
+      component: keycloak-postgres
+  template:
+    metadata:
+      labels:
+        {{- include "oversight.selectorLabels" . | nindent 8 }}
+        component: keycloak-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: "{{ .Values.keycloakPostgres.image.repository }}:{{ .Values.keycloakPostgres.image.tag }}"
+        imagePullPolicy: {{ .Values.keycloakPostgres.image.pullPolicy }}
+        env:
+        - name: POSTGRES_DB
+          value: {{ .Values.keycloakPostgres.auth.database | quote }}
+        - name: POSTGRES_USER
+          value: {{ .Values.keycloakPostgres.auth.username | quote }}
+        - name: POSTGRES_PASSWORD
+          value: {{ .Values.keycloakPostgres.auth.postgresPassword | quote }}
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        ports:
+        - name: postgres
+          containerPort: 5432
+          protocol: TCP
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        livenessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U {{ .Values.keycloakPostgres.auth.username }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - pg_isready -U {{ .Values.keycloakPostgres.auth.username }}
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+        resources:
+          {{- toYaml .Values.keycloakPostgres.resources | nindent 10 }}
+      volumes:
+      - name: data
+        {{- if .Values.keycloakPostgres.primary.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "oversight.fullname" . }}-keycloak-postgres
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+  {{- if .Values.keycloakPostgres.primary.persistence.enabled }}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      {{- if .Values.keycloakPostgres.primary.persistence.storageClass }}
+      storageClassName: {{ .Values.keycloakPostgres.primary.persistence.storageClass }}
+      {{- end }}
+      resources:
+        requests:
+          storage: {{ .Values.keycloakPostgres.primary.persistence.size }}
+  {{- end }}
+{{- end }}

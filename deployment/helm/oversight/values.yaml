@@ -1,0 +1,318 @@
+# Default values for OverSight
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Backend API Service
+backend:
+  enabled: true
+  image:
+    repository: oversight-backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 2
+  
+  service:
+    type: ClusterIP
+    port: 8000
+    targetPort: 8000
+  
+  ingress:
+    enabled: false
+    className: "nginx"
+    annotations: {}
+    hosts:
+      - host: api.oversight.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  
+  env:
+    # Database
+    DATABASE_URL: "postgresql://oversight:oversight123@postgres:5432/oversight"
+    
+    # API Configuration
+    API_PORT: "8000"
+    API_PREFIX: "/api"
+    
+    # AI/LLM Configuration
+    GEMINI_API_KEY: ""
+    GEMINI_MODEL: "gemini-1.5-pro"
+    
+    # DataHub Configuration
+    DATAHUB_GMS_SERVER: "http://datahub:8080"
+    DATAHUB_PLATFORM_NAME: "oversight"
+    
+    # MinIO Configuration
+    MINIO_ENDPOINT: "minio:9000"
+    MINIO_ACCESS_KEY: "minioadmin"
+    MINIO_SECRET_KEY: "minioadmin123"
+    MINIO_BUCKET: "raw-data"
+    MINIO_USE_SSL: "false"
+    
+    # Redis Configuration
+    REDIS_HOST: "redis"
+    REDIS_PORT: "6379"
+    
+    # Keycloak Configuration
+    KEYCLOAK_URL: "http://keycloak:8080"
+    KEYCLOAK_REALM: "oversight"
+    KEYCLOAK_CLIENT_ID: "oversight-backend"
+    KEYCLOAK_CLIENT_SECRET: ""
+    
+    # Langfuse Configuration
+    LANGFUSE_PUBLIC_KEY: ""
+    LANGFUSE_SECRET_KEY: ""
+    LANGFUSE_BASE_URL: ""
+    
+    # Groq Configuration
+    GROQ_API_KEY: ""
+  
+  volumeMounts:
+    - name: data
+      mountPath: /app/data
+  
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: backend-data
+  
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# Frontend Service
+frontend:
+  enabled: true
+  image:
+    repository: oversight-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 2
+  
+  service:
+    type: ClusterIP
+    port: 3003
+    targetPort: 3003
+  
+  ingress:
+    enabled: false
+    className: "nginx"
+    annotations: {}
+    hosts:
+      - host: oversight.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+  
+  env:
+    API_PORT: "3003"
+    PYTHON_API_URL: "http://backend:8000"
+    KEYCLOAK_URL: "http://keycloak:8080"
+    KEYCLOAK_REALM: "oversight"
+    KEYCLOAK_CLIENT_ID: "oversight-frontend"
+    LANGFUSE_PUBLIC_KEY: ""
+    LANGFUSE_SECRET_KEY: ""
+    LANGFUSE_BASE_URL: ""
+    GROQ_API_KEY: ""
+    GEMINI_API_KEY: ""
+  
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+  
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+# PostgreSQL Database
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+  
+  auth:
+    postgresPassword: "oversight123"
+    database: "oversight"
+    username: "oversight"
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: ""
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+# Redis
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+    pullPolicy: IfNotPresent
+  
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+# MinIO Object Storage
+minio:
+  enabled: true
+  image:
+    repository: minio/minio
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  mode: standalone
+  
+  auth:
+    rootUser: "minioadmin"
+    rootPassword: "minioadmin123"
+  
+  persistence:
+    enabled: true
+    size: 100Gi
+    storageClass: ""
+  
+  service:
+    type: ClusterIP
+    apiPort: 9000
+    consolePort: 9001
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+# Keycloak
+keycloak:
+  enabled: true
+  image:
+    repository: quay.io/keycloak/keycloak
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 1
+  
+  auth:
+    adminUser: "admin"
+    adminPassword: "admin123"
+  
+  database:
+    type: "postgres"
+    host: "keycloak-postgres"
+    port: 5432
+    database: "keycloak"
+    username: "keycloak"
+    password: "keycloak123"
+  
+  service:
+    type: ClusterIP
+    httpPort: 8080
+  
+  ingress:
+    enabled: false
+    className: "nginx"
+    annotations: {}
+    hosts:
+      - host: keycloak.oversight.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+
+# Keycloak Database
+keycloakPostgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15-alpine"
+    pullPolicy: IfNotPresent
+  
+  auth:
+    postgresPassword: "keycloak123"
+    database: "keycloak"
+    username: "keycloak"
+  
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+      storageClass: ""
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+# DataHub (optional - can be external)
+datahub:
+  enabled: false
+  # DataHub requires separate Helm chart
+  # See: https://github.com/datahub-project/datahub/tree/master/docker/datahub-upgrade

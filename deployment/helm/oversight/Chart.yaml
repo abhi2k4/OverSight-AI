@@ -1,0 +1,17 @@
+apiVersion: v2
+name: oversight
+description: OverSight - AI & Data Governance Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - ai
+  - governance
+  - data-management
+  - metadata
+  - compliance
+maintainers:
+  - name: OverSight Team
+home: https://github.com/yourorg/oversight
+sources:
+  - https://github.com/yourorg/oversight

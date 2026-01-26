@@ -1,0 +1,68 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oversight.fullname" . }}-keycloak
+  labels:
+    {{- include "oversight.labels" . | nindent 4 }}
+    component: keycloak
+spec:
+  replicas: {{ .Values.keycloak.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "oversight.selectorLabels" . | nindent 6 }}
+      component: keycloak
+  template:
+    metadata:
+      labels:
+        {{- include "oversight.selectorLabels" . | nindent 8 }}
+        component: keycloak
+    spec:
+      containers:
+      - name: keycloak
+        image: "{{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}"
+        imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
+        command:
+        - /opt/keycloak/bin/kc.sh
+        - start-dev
+        env:
+        - name: KEYCLOAK_ADMIN
+          value: {{ .Values.keycloak.auth.adminUser | quote }}
+        - name: KEYCLOAK_ADMIN_PASSWORD
+          value: {{ .Values.keycloak.auth.adminPassword | quote }}
+        - name: KC_DB
+          value: {{ .Values.keycloak.database.type | quote }}
+        - name: KC_DB_URL
+          value: "jdbc:postgresql://{{ .Values.keycloak.database.host }}:{{ .Values.keycloak.database.port }}/{{ .Values.keycloak.database.database }}"
+        - name: KC_DB_USERNAME
+          value: {{ .Values.keycloak.database.username | quote }}
+        - name: KC_DB_PASSWORD
+          value: {{ .Values.keycloak.database.password | quote }}
+        - name: KC_HOSTNAME_STRICT
+          value: "false"
+        - name: KC_HOSTNAME_STRICT_HTTPS
+          value: "false"
+        - name: KC_HTTP_ENABLED
+          value: "true"
+        ports:
+        - name: http
+          containerPort: {{ .Values.keycloak.service.httpPort }}
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          {{- toYaml .Values.keycloak.resources | nindent 10 }}
+{{- end }}

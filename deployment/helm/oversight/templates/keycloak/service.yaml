@@ -1,0 +1,19 @@
+{{- if .Values.keycloak.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "oversight.fullname" . }}-keycloak
+  labels:
+    {{- include "oversight.labels" . | nindent 4 }}
+    component: keycloak
+spec:
+  type: {{ .Values.keycloak.service.type }}
+  ports:
+    - port: {{ .Values.keycloak.service.httpPort }}
+      targetPort: {{ .Values.keycloak.service.httpPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "oversight.selectorLabels" . | nindent 4 }}
+    component: keycloak
+{{- end }}

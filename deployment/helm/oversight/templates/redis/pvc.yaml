@@ -1,0 +1,18 @@
+{{- if and .Values.redis.enabled .Values.redis.master.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "oversight.fullname" . }}-redis
+  labels:
+    {{- include "oversight.labels" . | nindent 4 }}
+    component: redis
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.redis.master.persistence.storageClass }}
+  storageClassName: {{ .Values.redis.master.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.master.persistence.size }}
+{{- end }}

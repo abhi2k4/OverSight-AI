@@ -1,0 +1,22 @@
+{{- if and .Values.backend.enabled .Values.backend.volumes }}
+{{- range .Values.backend.volumes }}
+{{- if .persistentVolumeClaim }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .persistentVolumeClaim.claimName }}
+  labels:
+    {{- include "oversight.labels" $ | nindent 4 }}
+    component: backend
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .persistentVolumeClaim.storageClass }}
+  storageClassName: {{ .persistentVolumeClaim.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .persistentVolumeClaim.size | default "20Gi" }}
+{{- end }}
+{{- end }}
+{{- end }}

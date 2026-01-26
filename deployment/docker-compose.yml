@@ -1,0 +1,247 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: oversight-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-oversight}
+      POSTGRES_USER: ${POSTGRES_USER:-oversight}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-oversight123}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oversight}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oversight-network
+
+  # Redis for caching and job queues
+  redis:
+    image: redis:7-alpine
+    container_name: oversight-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oversight-network
+
+  # MinIO Object Storage
+  minio:
+    image: minio/minio:latest
+    container_name: oversight-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+    networks:
+      - oversight-network
+
+  # Backend API Service
+  backend:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.backend
+    container_name: oversight-backend
+    environment:
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-oversight}:${POSTGRES_PASSWORD:-oversight123}@postgres:5432/${POSTGRES_DB:-oversight}
+      
+      # API Configuration
+      API_PORT: 8000
+      API_PREFIX: /api
+      
+      # AI/LLM Configuration
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-1.5-pro}
+      
+      # DataHub Configuration
+      DATAHUB_GMS_SERVER: ${DATAHUB_GMS_SERVER:-http://datahub:8080}
+      DATAHUB_PLATFORM_NAME: ${DATAHUB_PLATFORM_NAME:-oversight}
+      
+      # MinIO Configuration
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_BUCKET: ${MINIO_BUCKET:-raw-data}
+      MINIO_USE_SSL: "false"
+      
+      # Redis Configuration
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      
+      # Keycloak Configuration
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-oversight}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-oversight-backend}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      
+      # Langfuse Configuration (optional)
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-http://localhost:3000}
+      
+      # Groq Configuration (optional)
+      GROQ_API_KEY: ${GROQ_API_KEY}
+    volumes:
+      - backend_data:/app/data
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - oversight-network
+    restart: unless-stopped
+
+  # Frontend Service
+  frontend:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.frontend
+    container_name: oversight-frontend
+    environment:
+      # API Configuration
+      API_PORT: 3003
+      PYTHON_API_URL: ${PYTHON_API_URL:-http://backend:8000}
+      
+      # Keycloak Configuration
+      KEYCLOAK_URL: ${KEYCLOAK_URL:-http://keycloak:8080}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-oversight}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-oversight-frontend}
+      
+      # Langfuse Configuration (optional)
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL}
+      
+      # Groq Configuration (optional)
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      
+      # Gemini Configuration (optional)
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    ports:
+      - "${FRONTEND_PORT:-3003}:3003"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3003/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - oversight-network
+    restart: unless-stopped
+
+  # Keycloak Authentication Service
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: oversight-keycloak
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin123}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak123}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - "${KEYCLOAK_PORT:-8080}:8080"
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - oversight-network
+    restart: unless-stopped
+
+  # Keycloak Database
+  keycloak-db:
+    image: postgres:15-alpine
+    container_name: oversight-keycloak-db
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak123}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${KEYCLOAK_DB_USER:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oversight-network
+
+  # DataHub (Optional - can be external)
+  # Uncomment if you want to run DataHub locally
+  # datahub:
+  #   image: acryldata/datahub-upgrade:latest
+  #   container_name: oversight-datahub
+  #   environment:
+  #     DATAHUB_GMS_HOST: datahub
+  #     DATAHUB_GMS_PORT: 8080
+  #   ports:
+  #     - "9002:9002"
+  #   networks:
+  #     - oversight-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  minio_data:
+    driver: local
+  backend_data:
+    driver: local
+  keycloak_db_data:
+    driver: local
+
+networks:
+  oversight-network:
+    driver: bridge

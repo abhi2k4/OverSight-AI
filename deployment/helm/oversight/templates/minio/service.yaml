@@ -1,0 +1,23 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "oversight.fullname" . }}-minio
+  labels:
+    {{- include "oversight.labels" . | nindent 4 }}
+    component: minio
+spec:
+  type: {{ .Values.minio.service.type }}
+  ports:
+    - name: api
+      port: {{ .Values.minio.service.apiPort }}
+      targetPort: {{ .Values.minio.service.apiPort }}
+      protocol: TCP
+    - name: console
+      port: {{ .Values.minio.service.consolePort }}
+      targetPort: {{ .Values.minio.service.consolePort }}
+      protocol: TCP
+  selector:
+    {{- include "oversight.selectorLabels" . | nindent 4 }}
+    component: minio
+{{- end }}
