@@ -14,6 +14,7 @@ const Header = ({ theme, toggleTheme }) => {
   const navItems = [
     { name: 'Home', link: '#hero' },
     { name: 'Features', link: '#features' },
+    { name: 'Docs', link: 'https://docs.oversightai.in', external: true },
     { name: 'FAQ', link: '#faq' }
   ];
 
@@ -49,6 +50,8 @@ const Header = ({ theme, toggleTheme }) => {
                 <a
                   key={item.name}
                   href={item.link}
+                  target={item.external ? '_blank' : undefined}
+                  rel={item.external ? 'noopener noreferrer' : undefined}
                   className="text-sm font-medium text-muted-foreground hover:text-[#7C3AED] transition-colors relative group"
                 >
                   {item.name}
