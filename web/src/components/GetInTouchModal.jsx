@@ -1,22 +1,33 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { IconX, IconMail, IconUser, IconBriefcase, IconSend } from '@tabler/icons-react';
+import PhoneInput from 'react-phone-number-input';
 import emailjs from '@emailjs/browser';
+import toast, { Toaster } from 'react-hot-toast';
 import { emailJsConfig } from '@/config/emailjs.config';
-import { googleSheetsConfig } from '@/config/googlesheets.config';
+import { submitToGoogleSheets } from '@/config/googlesheets.config';
+import 'react-phone-number-input/style.css';
+import '@/styles/phone-input.css';
 
-const GetInTouchModal = () => {
+const GetInTouchModal = ({ isOpen: externalIsOpen, onClose: externalOnClose }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    jobRole: '',
+    fullName: '',
+    delegation: '',
     email: '',
+    phone: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState(null); // 'success' or 'error'
   const [hasShown, setHasShown] = useState(false);
+  const [hasSubmitted, setHasSubmitted] = useState(false); // Prevent duplicate submissions
+
+  // Use external control if provided, otherwise use internal timer logic
+  const modalIsOpen = externalIsOpen !== undefined ? externalIsOpen : isOpen;
 
   useEffect(() => {
+    // Only show timer-based modal if no external control is provided
+    if (externalIsOpen !== undefined) return;
+    
     // Check if modal was already shown in this session
     const modalShown = sessionStorage.getItem('getInTouchModalShown');
     
@@ -29,11 +40,15 @@ const GetInTouchModal = () => {
 
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [externalIsOpen]);
 
   const handleClose = () => {
-    setIsOpen(false);
-    setSubmitStatus(null);
+    if (externalOnClose) {
+      externalOnClose();
+    } else {
+      setIsOpen(false);
+    }
+    setHasSubmitted(false); // Reset flag when closing
   };
 
   const handleChange = (e) => {
@@ -45,14 +60,21 @@ const GetInTouchModal = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent duplicate submissions
+    if (isSubmitting || hasSubmitted) {
+      return;
+    }
+    
     setIsSubmitting(true);
-    setSubmitStatus(null);
+    setHasSubmitted(true);
 
     try {
       const payload = {
-        name: formData.name,
-        jobTitle: formData.jobRole,
+        name: formData.fullName,
+        jobTitle: formData.delegation,
         email: formData.email,
+        phone: formData.phone || '',
       };
 
       // 1. Send contact email
@@ -63,6 +85,7 @@ const GetInTouchModal = () => {
           name: payload.name,
           job_title: payload.jobTitle,
           email: payload.email,
+          phone: payload.phone,
         },
         emailJsConfig.publicKey
       );
@@ -78,20 +101,18 @@ const GetInTouchModal = () => {
         emailJsConfig.publicKey
       );
 
-      // 3. Save to Google Sheets
-      const sheetsResponse = await fetch(googleSheetsConfig.appsScriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!sheetsResponse.ok) {
-        console.warn('Google Sheets submission warning:', sheetsResponse.statusText);
-      }
+      // 3. Save to Google Sheets using no-cors mode (fire and forget)
+      // This won't block the success message even if Google Sheets fails
+      submitToGoogleSheets(payload);
 
       // Success - all submissions completed
-      setSubmitStatus('success');
-      setFormData({ name: '', jobRole: '', email: '' });
+      setFormData({ fullName: '', delegation: '', email: '', phone: '' });
+
+      // Show success toast
+      toast.success('Thanks! We\'ll get back to you soon.', {
+        duration: 4000,
+        position: 'top-right',
+      });
 
       // Close modal after 3 seconds on success
       setTimeout(() => {
@@ -99,15 +120,23 @@ const GetInTouchModal = () => {
       }, 3000);
     } catch (error) {
       console.error('Form Submission Error:', error);
-      setSubmitStatus('error');
+      setHasSubmitted(false); // Reset on error so user can retry
+      
+      // Show error toast
+      toast.error('Something went wrong. Please try again.', {
+        duration: 4000,
+        position: 'top-right',
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
+    <>
+      <Toaster />
+      <AnimatePresence>
+      {modalIsOpen && (
         <>
           {/* Backdrop */}
           <motion.div
@@ -141,7 +170,7 @@ const GetInTouchModal = () => {
                 <div className="p-6 sm:p-8">
                   {/* Header */}
                   <div className="mb-6">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center mb-4 shadow-lg shadow-primary/10">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/20 flex items-center justify-center mb-4 shadow-lg shadow-primary/10">
                       <IconMail size={28} className="text-primary" />
                     </div>
                     <h2 className="text-3xl font-bold text-foreground mb-2 tracking-tight">
@@ -154,18 +183,18 @@ const GetInTouchModal = () => {
 
                   {/* Form */}
                   <form onSubmit={handleSubmit} className="space-y-5">
-                    {/* Name Field */}
+                    {/* Full Name Field */}
                     <div className="space-y-2">
-                      <label htmlFor="name" className="text-sm font-semibold text-foreground flex items-center gap-1">
-                        Name <span className="text-red-500">*</span>
+                      <label htmlFor="fullName" className="text-sm font-semibold text-foreground flex items-center gap-1">
+                        Full Name <span className="text-red-500">*</span>
                       </label>
                       <div className="relative group">
                         <IconUser className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                         <input
                           type="text"
-                          id="name"
-                          name="name"
-                          value={formData.name}
+                          id="fullName"
+                          name="fullName"
+                          value={formData.fullName}
                           onChange={handleChange}
                           required
                           placeholder="John Doe"
@@ -174,18 +203,18 @@ const GetInTouchModal = () => {
                       </div>
                     </div>
 
-                    {/* Job Role Field */}
+                    {/* Delegation / Job Title Field */}
                     <div className="space-y-2">
-                      <label htmlFor="jobRole" className="text-sm font-semibold text-foreground flex items-center gap-1">
-                        Job Role <span className="text-red-500">*</span>
+                      <label htmlFor="delegation" className="text-sm font-semibold text-foreground flex items-center gap-1">
+                        Delegation / Job Title <span className="text-red-500">*</span>
                       </label>
                       <div className="relative group">
                         <IconBriefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                         <input
                           type="text"
-                          id="jobRole"
-                          name="jobRole"
-                          value={formData.jobRole}
+                          id="delegation"
+                          name="delegation"
+                          value={formData.delegation}
                           onChange={handleChange}
                           required
                           placeholder="AI Engineer, CTO, etc."
@@ -214,36 +243,33 @@ const GetInTouchModal = () => {
                       </div>
                     </div>
 
-                    {/* Status Messages */}
-                    {submitStatus === 'success' && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 backdrop-blur-sm"
-                      >
-                        <p className="text-sm text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-2">
-                          <span className="text-lg">✓</span> Thanks! We'll get back to you soon.
-                        </p>
-                      </motion.div>
-                    )}
-
-                    {submitStatus === 'error' && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 backdrop-blur-sm"
-                      >
-                        <p className="text-sm text-red-600 dark:text-red-400 font-medium flex items-center gap-2">
-                          <span className="text-lg">✗</span> Something went wrong. Please try again or email us directly.
-                        </p>
-                      </motion.div>
-                    )}
+                    {/* Phone/Contact Field (Optional) */}
+                    <div className="space-y-2">
+                      <label htmlFor="phone" className="text-sm font-semibold text-foreground">
+                        Phone/Contact
+                      </label>
+                      <PhoneInput
+                        international
+                        countryCallingCodeEditable={false}
+                        defaultCountry="IN"
+                        value={formData.phone}
+                        onChange={(value) => setFormData({ ...formData, phone: value || '' })}
+                        placeholder="Enter phone number"
+                        className="w-full"
+                        inputComponent={(props) => (
+                          <input
+                            {...props}
+                            className="w-full pl-4 pr-4 py-3 bg-muted/50 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary focus:bg-background transition-all text-foreground placeholder:text-muted-foreground/60"
+                          />
+                        )}
+                      />
+                    </div>
 
                     {/* Submit Button */}
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full bg-gradient-to-r from-primary to-primary/90 text-white py-3.5 px-4 rounded-xl font-semibold hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary/50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                      className="w-full bg-primary text-white py-3.5 px-4 rounded-xl font-semibold hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary/50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
                     >
                       {isSubmitting ? (
                         <>
@@ -275,6 +301,7 @@ const GetInTouchModal = () => {
         </>
       )}
     </AnimatePresence>
+    </>
   );
 };
 

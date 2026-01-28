@@ -142,6 +142,33 @@ export default function LandingPage() {
   });
   const [openAccordion, setOpenAccordion] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeTab, setActiveTab] = useState('hero');
+
+  // Handle navbar scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      setIsScrolled(scrollTop > 50);
+
+      // Detect active section
+      const sections = ['hero', 'features', 'faq'];
+      for (const section of sections) {
+        const element = document.getElementById(section);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          if (rect.top <= 150 && rect.bottom >= 150) {
+            setActiveTab(section);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Apply theme to document root
   useEffect(() => {
@@ -169,7 +196,7 @@ export default function LandingPage() {
   const navItems = [
     { name: 'Home', link: '#hero' },
     { name: 'Features', link: '#features' },
-    { name: 'Docs', link: 'https://oversight-docs.vercel.app/docs', external: true },
+    { name: 'Docs', link: 'https://docs.oversightai.in', external: true },
     { name: 'FAQ', link: '#faq' }
   ];
 
@@ -179,40 +206,75 @@ export default function LandingPage() {
         <div className="max-w-full mx-auto border-x min-h-screen relative bg-background text-foreground transition-colors duration-300">
         
         {/* Get In Touch Modal */}
-        <GetInTouchModal />
+        <GetInTouchModal 
+          isOpen={isContactModalOpen} 
+          onClose={() => setIsContactModalOpen(false)} 
+        />
         
         {/* Resizable Navbar with Theme */}
-        <Navbar className="top-0">
+        <Navbar className={`top-0 transition-all duration-300 ease-in-out `}>
           <NavBody className="w-full">
             <div className="flex items-center justify-between w-full">
               <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
-                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors">
+                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors duration-200">
                   <img 
                     src="/OverSight.png" 
                     alt="OverSight Logo" 
-                    className="w-7 h-7 rounded-md object-cover"
+                    className={`rounded-md object-cover transition-all duration-300 ${
+                      isScrolled ? 'w-6 h-6' : 'w-7 h-7'
+                    }`}
                   />
                 </div>
-                <p className="text-base font-bold tracking-tight">
+                <p className={`font-bold tracking-tight transition-all duration-300 ${
+                  isScrolled ? 'text-sm' : 'text-base'
+                }`}>
                   <span className="text-[#7C3AED]">OverSight</span>
                   <span className="text-muted-foreground font-normal">AI</span>
                 </p>
               </a>
               
-              <NavItems 
-                items={navItems}
-                className="!absolute !inset-0 !flex !flex-row !items-center !justify-center !space-x-2 md:!space-x-6 text-sm font-medium"
-              />
+              <div className="hidden md:flex items-center justify-center space-x-1 absolute inset-0 pointer-events-none">
+                <div className="flex items-center space-x-1 pointer-events-auto">
+                  {navItems.map((item) => {
+                    const itemLink = item.link.replace('#', '');
+                    const isActive = activeTab === itemLink && !item.external;
+                    return (
+                      <a
+                        key={item.name}
+                        href={item.link}
+                        target={item.external ? "_blank" : undefined}
+                        rel={item.external ? "noopener noreferrer" : undefined}
+                        className={`relative px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg group ${
+                          isActive
+                            ? 'text-[#7C3AED] bg-[#7C3AED]/10'
+                            : 'text-muted-foreground hover:text-[#7C3AED] hover:bg-[#7C3AED]/5'
+                        }`}
+                      >
+                        <span className="relative z-10">{item.name}</span>
+                        {isActive && (
+                          <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-[#7C3AED] rounded-full" />
+                        )}
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
 
               <div className="flex items-center gap-3 ml-auto relative z-50">
                 <button
                   onClick={toggleTheme}
-                  className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors cursor-pointer"
+                  className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors duration-200 rounded-lg hover:bg-[#7C3AED]/5"
                   aria-label="Toggle theme"
                 >
                   {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
                 </button>
-                <NavbarButton href="#contact" variant="primary" className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] px-6">
+                <NavbarButton 
+                  href="#contact" 
+                  variant="primary" 
+                  className={`bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-all duration-200 hover:scale-105 ${
+                    isScrolled ? 'px-4 py-1.5 text-sm' : 'px-6 py-2'
+                  }`}
+                >
                   Get Started
                 </NavbarButton>
               </div>
@@ -222,21 +284,25 @@ export default function LandingPage() {
           <MobileNav className="w-full">
             <MobileNavHeader className="justify-between">
               <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
-                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors">
+                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors duration-200">
                   <img 
                     src="/OverSight.png" 
                     alt="OverSight Logo" 
-                    className="w-6 h-6 rounded-md object-cover"
+                    className={`rounded-md object-cover transition-all duration-300 ${
+                      isScrolled ? 'w-5 h-5' : 'w-6 h-6'
+                    }`}
                   />
                 </div>
-                <p className="text-sm font-bold tracking-tight">
+                <p className={`font-bold tracking-tight transition-all duration-300 ${
+                  isScrolled ? 'text-xs' : 'text-sm'
+                }`}>
                   <span className="text-[#7C3AED]">OverSight</span>
                 </p>
               </a>
               <div className="flex items-center gap-2 relative z-50">
                 <button
                   onClick={toggleTheme}
-                  className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors cursor-pointer"
+                  className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors duration-200 rounded-lg hover:bg-[#7C3AED]/5"
                   aria-label="Toggle theme"
                 >
                   {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
@@ -248,27 +314,41 @@ export default function LandingPage() {
               </div>
             </MobileNavHeader>
             <MobileNavMenu isOpen={mobileMenuOpen} onClose={closeMobileMenu}>
-              <div className="w-full space-y-4">
-                {navItems.map((item) => (
-                  <a
-                    key={item.name}
-                    href={item.link}
-                    target={item.external ? "_blank" : undefined}
-                    rel={item.external ? "noopener noreferrer" : undefined}
-                    className="text-muted-foreground hover:text-[#7C3AED] transition-colors text-sm font-medium block"
-                    onClick={item.external ? undefined : closeMobileMenu}
+              <div className="w-full space-y-2 p-4">
+                {navItems.map((item, index) => {
+                  const itemLink = item.link.replace('#', '');
+                  const isActive = activeTab === itemLink && !item.external;
+                  return (
+                    <a
+                      key={item.name}
+                      href={item.link}
+                      target={item.external ? "_blank" : undefined}
+                      rel={item.external ? "noopener noreferrer" : undefined}
+                      className={`block px-4 py-3 transition-all duration-200 text-sm font-medium rounded-lg group ${
+                        isActive
+                          ? 'text-[#7C3AED] bg-[#7C3AED]/10 border-l-2 border-[#7C3AED]'
+                          : 'text-muted-foreground hover:text-[#7C3AED] hover:bg-[#7C3AED]/5'
+                      }`}
+                      onClick={item.external ? undefined : closeMobileMenu}
+                      style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                      <span className="flex items-center justify-between">
+                        {item.name}
+                        {item.external && <IconArrowRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" />}
+                      </span>
+                    </a>
+                  );
+                })}
+                <div className="pt-4 border-t border-border/50">
+                  <NavbarButton 
+                    href="#contact" 
+                    variant="primary" 
+                    className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] w-full transition-all duration-200 hover:scale-105"
+                    onClick={closeMobileMenu}
                   >
-                    {item.name}
-                  </a>
-                ))}
-                <NavbarButton 
-                  href="#contact" 
-                  variant="primary" 
-                  className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] w-full"
-                  onClick={closeMobileMenu}
-                >
-                  Get Started
-                </NavbarButton>
+                    Get Started
+                  </NavbarButton>
+                </div>
               </div>
             </MobileNavMenu>
           </MobileNav>
@@ -350,7 +430,7 @@ export default function LandingPage() {
                         <Button 
                             variant="default" 
                             className="bg-[#7C3AED] hover:bg-[#6D28D9]"
-                            onClick={() => window.location.href = 'mailto:shaikhjishan255@gmail.com?subject=Enquiry for OverSight AI&body=Hi,%0A%0AI went through your product OverSight AI and I am interested in learning more about:%0A%0A- [Please describe your use case or question here]%0A%0AThank you!'}
+                            onClick={() => setIsContactModalOpen(true)}
                         >
                             Contact Us
                         </Button>
@@ -386,7 +466,7 @@ export default function LandingPage() {
                             variant="outline" 
                             size="lg" 
                             className="rounded-full h-14 px-8 text-base font-bold bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm w-full sm:w-auto"
-                            onClick={() => window.open('https://oversight-docs.vercel.app/docs', '_blank')}
+                            onClick={() => window.open('https://docs.oversightai.in', '_blank')}
                         >
                             View Documentation
                         </Button>
@@ -398,11 +478,11 @@ export default function LandingPage() {
           {/* Footer */}
           <footer className="py-16 border-t border-border bg-muted/30">
              <div className="max-w-7xl mx-auto px-6">
-                 <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
-                     {/* Brand */}
-                     <div className="md:col-span-2">
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+                     {/* Brand Section */}
+                     <div className="md:col-span-1">
                          <div className="flex items-center gap-2.5 mb-4">
-                            <div className="relative flex items-center justify-center p-1 rounded-lg">
+                            <div className="relative flex items-center justify-center p-1 rounded-lg group hover:bg-[#7C3AED]/5 transition-colors duration-200">
                                 <img 
                                     src="/OverSight.png" 
                                     alt="OverSight Logo" 
@@ -411,46 +491,94 @@ export default function LandingPage() {
                             </div>
                             <span className="font-bold text-xl text-primary">OverSight<span className="text-muted-foreground font-normal">AI</span></span>
                          </div>
-                         <p className="text-sm text-muted-foreground max-w-sm mb-6">
+                         <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
                              Taming Enterprise AI with unified governance, real-time monitoring, and immutable audit trails.
                          </p>
-                         
                      </div>
 
-                     {/* Product Links */}
+                     {/* Resources Links */}
                      <div>
-                         <h4 className="font-semibold text-sm mb-4">Product</h4>
+                         <h4 className="font-semibold text-sm mb-4">Resources</h4>
                          <ul className="space-y-3 text-sm text-muted-foreground">
-                             {['Features', 'Pricing', 'Documentation', 'API Reference', 'Changelog', 'Roadmap'].map((item) => (
-                                 <li key={item}>
-                                     <a href="#" className="hover:text-[#7C3AED] transition-colors">{item}</a>
+                             {[
+                               { label: 'Documentation', href: 'https://docs.oversightai.in', external: true },
+                               { label: 'GitHub Repository', href: 'https://github.com/abhi2k4/GRACE_Knowcode_OverSight', external: true },
+                               { label: 'FAQ', href: '#faq' }
+                             ].map((item) => (
+                                 <li key={item.label}>
+                                     <a 
+                                       href={item.href}
+                                       target={item.external ? '_blank' : undefined}
+                                       rel={item.external ? 'noopener noreferrer' : undefined}
+                                       className="hover:text-[#7C3AED] transition-colors duration-200 flex items-center gap-2 group"
+                                     >
+                                       {item.label}
+                                       {item.external && <IconArrowRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" />}
+                                     </a>
                                  </li>
                              ))}
                          </ul>
                      </div>
 
-                     {/* Company Links */}
+                     {/* Connect Section */}
                      <div>
-                         <h4 className="font-semibold text-sm mb-4">Company</h4>
+                         <h4 className="font-semibold text-sm mb-4">Connect</h4>
                          <ul className="space-y-3 text-sm text-muted-foreground">
-                             {['About', 'Blog', 'Careers', 'Contact', 'Privacy Policy', 'Terms of Service'].map((item) => (
-                                 <li key={item}>
-                                     <a href="#" className="hover:text-[#7C3AED] transition-colors">{item}</a>
+                             {[
+                               { label: 'Get in Touch', href: '#faq', action: () => setIsContactModalOpen(true) },
+                               { label: 'View on GitHub', href: 'https://github.com/abhi2k4', external: true }
+                             ].map((item) => (
+                                 <li key={item.label}>
+                                     {item.action ? (
+                                       <button 
+                                         onClick={item.action}
+                                         className="hover:text-[#7C3AED] transition-colors duration-200 flex items-center gap-2 group text-left"
+                                       >
+                                         {item.label}
+                                         <IconArrowRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                                       </button>
+                                     ) : (
+                                       <a 
+                                         href={item.href}
+                                         target={item.external ? '_blank' : undefined}
+                                         rel={item.external ? 'noopener noreferrer' : undefined}
+                                         className="hover:text-[#7C3AED] transition-colors duration-200 flex items-center gap-2 group"
+                                       >
+                                         {item.label}
+                                         {item.external && <IconArrowRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" />}
+                                       </a>
+                                     )}
                                  </li>
                              ))}
                          </ul>
                      </div>
                  </div>
 
-                 {/* Bottom Bar */}
-                 <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
+                 {/* Divider */}
+                 <div className="h-px bg-border/50 mb-8" />
+
+                 {/* Bottom Bar - Simplified */}
+                 <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                      <p className="text-sm text-muted-foreground">
                          © 2026 OverSight AI. All rights reserved.
                      </p>
                      <div className="flex items-center gap-6 text-sm text-muted-foreground">
-                         <a href="#" className="hover:text-[#7C3AED] transition-colors">Status</a>
-                         <a href="#" className="hover:text-[#7C3AED] transition-colors">Security</a>
-                         <a href="#" className="hover:text-[#7C3AED] transition-colors">Compliance</a>
+                         <a 
+                           href="https://docs.oversightai.in" 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="hover:text-[#7C3AED] transition-colors duration-200"
+                         >
+                           Documentation
+                         </a>
+                         <a 
+                           href="https://github.com/abhi2k4/GRACE_Knowcode_OverSight" 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="hover:text-[#7C3AED] transition-colors duration-200"
+                         >
+                           GitHub
+                         </a>
                      </div>
                  </div>
              </div>
