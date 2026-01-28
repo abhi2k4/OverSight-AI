@@ -121,31 +121,13 @@ export const MobileNav = ({
   visible
 }) => {
   return (
-    <motion.div
-      animate={{
-        backdropFilter: visible ? "blur(16px)" : "blur(0px)",
-        boxShadow: visible
-          ? "0 8px 32px rgba(124, 58, 237, 0.12), 0 1px 3px rgba(0, 0, 0, 0.1)"
-          : "none",
-        width: visible ? "88%" : "100%",
-        paddingRight: visible ? "16px" : "0px",
-        paddingLeft: visible ? "16px" : "0px",
-        borderRadius: visible ? "16px" : "12px",
-        y: visible ? 12 : 0,
-        border: visible ? "1px solid rgba(124, 58, 237, 0.2)" : "1px solid rgba(124, 58, 237, 0.1)",
-      }}
-      transition={{
-        type: "spring",
-        stiffness: 250,
-        damping: 35,
-      }}
+    <div
       className={cn(
-        "relative z-50 mx-auto flex w-full max-w-[calc(100vw-1rem)] flex-col items-center justify-between bg-background/40 px-4 py-3 lg:hidden backdrop-blur-md border border-border/50",
-        visible && "bg-background/60 border-[#7C3AED]/20",
+        "relative z-50 mx-auto flex w-full max-w-[calc(100vw-1rem)] flex-col items-center justify-between lg:hidden",
         className
       )}>
       {children}
-    </motion.div>
+    </div>
   );
 };
 
@@ -189,10 +171,18 @@ export const MobileNavToggle = ({
   isOpen,
   onClick
 }) => {
-  return isOpen ? (
-    <IconX className="text-black dark:text-white" onClick={onClick} />
-  ) : (
-    <IconMenu2 className="text-black dark:text-white" onClick={onClick} />
+  return (
+    <button
+      onClick={onClick}
+      className="p-2 hover:bg-muted rounded-md transition-colors"
+      aria-label="Toggle menu"
+    >
+      {isOpen ? (
+        <IconX className="text-foreground" size={24} />
+      ) : (
+        <IconMenu2 className="text-foreground" size={24} />
+      )}
+    </button>
   );
 };
 

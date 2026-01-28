@@ -1,0 +1,169 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* OverSight Brand Colors - Purple Theme */
+:root {
+  /* Primary purple from landing page */
+  --ifm-color-primary: #7C3AED;
+  --ifm-color-primary-dark: #6D28D9;
+  --ifm-color-primary-darker: #5B21B6;
+  --ifm-color-primary-darkest: #4C1D95;
+  --ifm-color-primary-light: #8B5CF6;
+  --ifm-color-primary-lighter: #A78BFA;
+  --ifm-color-primary-lightest: #C4B5FD;
+  
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(124, 58, 237, 0.1);
+  
+  /* Font settings for better Unicode support */
+  --ifm-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --ifm-font-family-monospace: 'SF Mono', 'Monaco', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace;
+}
+
+/* Dark mode - Lighter purple shades */
+[data-theme='dark'] {
+  --ifm-color-primary: #A78BFA;
+  --ifm-color-primary-dark: #8B5CF6;
+  --ifm-color-primary-darker: #7C3AED;
+  --ifm-color-primary-darkest: #6D28D9;
+  --ifm-color-primary-light: #C4B5FD;
+  --ifm-color-primary-lighter: #DDD6FE;
+  --ifm-color-primary-lightest: #EDE9FE;
+  
+  --docusaurus-highlighted-code-line-bg: rgba(167, 139, 250, 0.15);
+  
+  /* Better contrast for dark mode */
+  --ifm-background-color: #1a1a1a;
+  --ifm-background-surface-color: #242424;
+}
+
+/* Better emoji and Unicode rendering */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Ensure proper emoji display */
+.emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+  font-size: 1.2em;
+  vertical-align: middle;
+}
+
+/* Custom styling for better readability */
+.markdown h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+}
+
+.markdown h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+/* Code blocks with brand color accent */
+.prism-code {
+  border-left: 3px solid var(--ifm-color-primary);
+}
+
+/* Custom navbar styling to match landing page */
+.navbar {
+  box-shadow: 0 1px 2px 0 rgba(124, 58, 237, 0.05);
+}
+
+.navbar__title {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+/* Footer styling */
+.footer {
+  background: linear-gradient(to right, #1a1a1a, #242424);
+}
+
+.footer__title {
+  color: var(--ifm-color-primary-lightest);
+}
+
+/* Links with brand color */
+a {
+  color: var(--ifm-color-primary);
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--ifm-color-primary-dark);
+  text-decoration: none;
+}
+
+/* Sidebar improvements */
+.menu__link--active {
+  background: linear-gradient(90deg, 
+    rgba(124, 58, 237, 0.1) 0%, 
+    rgba(124, 58, 237, 0.05) 100%
+  );
+  border-left: 3px solid var(--ifm-color-primary);
+  padding-left: calc(var(--ifm-menu-link-padding-horizontal) - 3px);
+}
+
+/* Cards and containers */
+.card {
+  border: 1px solid rgba(124, 58, 237, 0.1);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  border-color: rgba(124, 58, 237, 0.3);
+  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.12);
+  transform: translateY(-2px);
+}
+
+/* Admonitions (callouts) with brand colors */
+.admonition {
+  border-radius: 8px;
+}
+
+.admonition-tip {
+  border-left: 4px solid var(--ifm-color-primary);
+}
+
+/* Better table styling */
+table {
+  border: 1px solid rgba(124, 58, 237, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+thead tr {
+  background: linear-gradient(90deg, 
+    rgba(124, 58, 237, 0.1) 0%, 
+    rgba(124, 58, 237, 0.05) 100%
+  );
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ifm-background-color);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ifm-color-primary);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ifm-color-primary-dark);
+}

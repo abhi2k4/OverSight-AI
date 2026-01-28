@@ -1,29 +1,44 @@
 {
   "name": "oversight-docs",
-  "version": "1.0.0",
-  "type": "module",
-  "description": "Documentation for Oversight - Unified Enterprise Data Observability Platform",
+  "version": "0.0.0",
+  "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
+    "docusaurus": "docusaurus",
+    "start": "docusaurus start",
+    "build": "docusaurus build",
+    "swizzle": "docusaurus swizzle",
+    "deploy": "docusaurus deploy",
+    "clear": "docusaurus clear",
+    "serve": "docusaurus serve",
+    "write-translations": "docusaurus write-translations",
+    "write-heading-ids": "docusaurus write-heading-ids"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/abhi2k4/oversight.git"
-  },
-  "author": "Oversight",
-  "license": "MIT",
   "dependencies": {
-    "next": "^14.2.0",
-    "nextra": "^3.3.1",
-    "nextra-theme-docs": "^3.0.0",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0"
+    "@docusaurus/core": "3.9.2",
+    "@docusaurus/preset-classic": "3.9.2",
+    "@mdx-js/react": "^3.0.0",
+    "clsx": "^2.0.0",
+    "prism-react-renderer": "^2.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@types/node": "20.11.0",
-    "typescript": "^5.3.0"
+    "@docusaurus/module-type-aliases": "3.9.2",
+    "@docusaurus/types": "3.9.2"
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 3 chrome version",
+      "last 3 firefox version",
+      "last 5 safari version"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0"
   }
 }
-

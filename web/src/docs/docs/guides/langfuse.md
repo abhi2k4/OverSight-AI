@@ -1,0 +1,500 @@
+---
+sidebar_position: 2
+title: Langfuse Integration Guide
+---
+
+# Langfuse Integration Guide
+
+This comprehensive guide will walk you through setting up Langfuse for LLM observability in your Oversight platform.
+
+## Overview
+
+Langfuse is an open-source LLM engineering platform that provides:
+- **Tracing & Observability**: Track all LLM calls with detailed traces
+- **Prompt Management**: Version and manage prompts centrally
+- **Metrics & Analytics**: Monitor costs, latency, and quality
+- **Evaluation**: Score and evaluate LLM outputs
+- **Dataset Management**: Create and manage test datasets
+
+## Architecture
+
+Langfuse includes several integrated components:
+- **Web Application**: UI for visualization and management
+- **Worker Service**: Background job processing
+- **PostgreSQL**: Primary database
+- **ClickHouse**: Analytics database
+- **Redis**: Caching and queuing
+- **MinIO**: Object storage for events and media
+
+## Installation
+
+### Step 1: Clone Langfuse Repository
+
+```bash
+git clone https://github.com/langfuse/langfuse
+cd langfuse
+```
+
+### Step 2: Configure Docker Compose
+
+Edit the `docker-compose.yml` file. Replace the entire content with the following production-ready configuration:
+
+```yaml
+# docker-compose.yml
+services:
+  langfuse-worker:
+    image: docker.io/langfuse/langfuse-worker:3
+    restart: always
+    depends_on: &langfuse-depends-on
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    ports:
+      - 127.0.0.1:3030:3030
+    environment: &langfuse-worker-env
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/postgres}
+      SALT: ${SALT:-mysalt} # CHANGEME
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000} # CHANGEME
+      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-true}
+      CLICKHOUSE_MIGRATION_URL: ${CLICKHOUSE_MIGRATION_URL:-clickhouse://clickhouse:9000}
+      CLICKHOUSE_URL: ${CLICKHOUSE_URL:-http://clickhouse:8123}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse} # CHANGEME
+      CLICKHOUSE_CLUSTER_ENABLED: ${CLICKHOUSE_CLUSTER_ENABLED:-false}
+      LANGFUSE_USE_AZURE_BLOB: ${LANGFUSE_USE_AZURE_BLOB:-false}
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${LANGFUSE_S3_EVENT_UPLOAD_BUCKET:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: ${LANGFUSE_S3_EVENT_UPLOAD_REGION:-auto}
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID:-minio}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY:-miniosecret} # CHANGEME
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: ${LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT:-http://minio:9000}
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: ${LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE:-true}
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: ${LANGFUSE_S3_EVENT_UPLOAD_PREFIX:-events/}
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${LANGFUSE_S3_MEDIA_UPLOAD_BUCKET:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: ${LANGFUSE_S3_MEDIA_UPLOAD_REGION:-auto}
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID:-minio}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY:-miniosecret} # CHANGEME
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: ${LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT:-http://localhost:9090}
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: ${LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE:-true}
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: ${LANGFUSE_S3_MEDIA_UPLOAD_PREFIX:-media/}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_AUTH: ${REDIS_AUTH:-myredissecret} # CHANGEME
+
+  langfuse-web:
+    image: docker.io/langfuse/langfuse:3
+    restart: always
+    depends_on: *langfuse-depends-on
+    ports:
+      - 3000:3000
+    environment:
+      <<: *langfuse-worker-env
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-mysecret} # CHANGEME
+
+  clickhouse:
+    image: docker.io/clickhouse/clickhouse-server
+    restart: always
+    user: "101:101"
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-clickhouse} # CHANGEME
+    volumes:
+      - langfuse_clickhouse_data:/var/lib/clickhouse
+      - langfuse_clickhouse_logs:/var/log/clickhouse-server
+    ports:
+      - 127.0.0.1:8123:8123
+      - 127.0.0.1:9000:9000
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+
+  minio:
+    image: cgr.dev/chainguard/minio
+    restart: always
+    entrypoint: sh
+    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
+    ports:
+      - 9090:9000
+      - 127.0.0.1:9091:9001
+    volumes:
+      - langfuse_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+
+  redis:
+    image: docker.io/redis:7
+    restart: always
+    command: >
+      --requirepass ${REDIS_AUTH:-myredissecret}
+      --maxmemory-policy noeviction
+    ports:
+      - 127.0.0.1:6379:6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 10s
+      retries: 10
+
+  postgres:
+    image: docker.io/postgres:17
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres} # CHANGEME
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - 127.0.0.1:5433:5432
+    volumes:
+      - langfuse_postgres_data:/var/lib/postgresql/data
+
+volumes:
+  langfuse_postgres_data:
+    driver: local
+  langfuse_clickhouse_data:
+    driver: local
+  langfuse_clickhouse_logs:
+    driver: local
+  langfuse_minio_data:
+    driver: local
+```
+
+### Step 3: Start Services
+
+```bash
+docker compose up -d
+```
+
+Wait for all services to start (this may take 1-2 minutes).
+
+### Step 4: Access Langfuse
+
+Open your browser and navigate to: `http://localhost:3000`
+
+## Configuration
+
+### Step 5: Create Account
+
+1. Click **Sign Up**
+2. Enter your email and password
+3. Complete registration
+
+### Step 6: Create Organization
+
+1. After login, you'll be prompted to create an organization
+2. Enter organization name: `oversight`
+3. Click **Create**
+
+### Step 7: Create Project
+
+1. Navigate to projects section
+2. Click **New Project**
+3. Enter project name: `oversight-app`
+4. Click **Create**
+
+### Step 8: Generate API Keys
+
+1. Click on the **Settings** (gear icon) in your project
+2. Navigate to **API Keys** section
+3. Click **Create New API Keys**
+4. You'll receive three credentials:
+   - **Public Key**: For client-side applications
+   - **Secret Key**: For server-side applications
+   - **Host**: Langfuse endpoint URL
+
+**Save these credentials securely!**
+
+## Application Integration
+
+### Environment Variables
+
+Create a `.env` file in your application directory:
+
+```bash
+cd your-app-directory
+touch .env
+```
+
+Add the Langfuse credentials:
+
+```env
+LANGFUSE_PUBLIC_KEY=pk-lf-...
+LANGFUSE_SECRET_KEY=sk-lf-...
+LANGFUSE_HOST=http://localhost:3000
+```
+
+### Python Integration
+
+#### Install SDK
+
+```bash
+pip install langfuse
+```
+
+#### Basic Usage
+
+```python
+from langfuse import Langfuse
+
+# Initialize
+langfuse = Langfuse()
+
+# Create a trace
+trace = langfuse.trace(name="llm-call")
+
+# Add a generation
+generation = trace.generation(
+    name="openai-completion",
+    model="gpt-4",
+    input="What is the capital of France?",
+    output="The capital of France is Paris."
+)
+
+# Flush to send data
+langfuse.flush()
+```
+
+#### OpenAI Integration
+
+```python
+from langfuse.openai import openai
+
+# Langfuse will automatically track all OpenAI calls
+response = openai.ChatCompletion.create(
+    model="gpt-4",
+    messages=[
+        {"role": "user", "content": "Hello!"}
+    ],
+    metadata={"user_id": "user123"}  # Add custom metadata
+)
+```
+
+### JavaScript/TypeScript Integration
+
+#### Install SDK
+
+```bash
+npm install langfuse
+```
+
+#### Basic Usage
+
+```typescript
+import { Langfuse } from "langfuse";
+
+// Initialize
+const langfuse = new Langfuse({
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  baseUrl: process.env.LANGFUSE_HOST,
+});
+
+// Create a trace
+const trace = langfuse.trace({
+  name: "llm-call",
+  userId: "user123",
+});
+
+// Add a generation
+const generation = trace.generation({
+  name: "openai-completion",
+  model: "gpt-4",
+  input: "What is AI?",
+  output: "AI is artificial intelligence...",
+});
+
+// Flush to send data
+await langfuse.flushAsync();
+```
+
+## Features
+
+### Tracing
+
+Track complete execution flows with nested spans:
+
+```python
+trace = langfuse.trace(name="user-query")
+
+# Retrieval step
+retrieval = trace.span(name="vector-search")
+# ... perform search ...
+retrieval.end(output={"documents": docs})
+
+# LLM step
+generation = trace.generation(
+    name="answer-generation",
+    input={"query": query, "context": docs}
+)
+# ... generate answer ...
+generation.end(output=answer)
+```
+
+### Prompt Management
+
+1. Navigate to **Prompts** in Langfuse
+2. Click **Create Prompt**
+3. Enter prompt name and template
+4. Version control built-in
+5. Use in code:
+
+```python
+prompt = langfuse.get_prompt("qa-prompt")
+formatted = prompt.compile(context=context, question=question)
+```
+
+### Scoring & Evaluation
+
+Add scores to generations:
+
+```python
+langfuse.score(
+    trace_id=trace.id,
+    name="quality",
+    value=0.95,
+    comment="High quality response"
+)
+```
+
+### Datasets
+
+Create test datasets for evaluation:
+
+1. Navigate to **Datasets**
+2. Click **Create Dataset**
+3. Add test cases
+4. Run evaluations programmatically
+
+## MinIO Integration
+
+Langfuse automatically uses MinIO for:
+- Event storage
+- Media file storage
+- Batch exports
+
+Access MinIO console at: `http://localhost:9091`
+- Username: `minio`
+- Password: `miniosecret`
+
+## Integration with Other Oversight Components
+
+### With Keycloak
+
+Configure Langfuse to use Keycloak authentication:
+
+```env
+AUTH_PROVIDER=keycloak
+AUTH_KEYCLOAK_ID=oversight-app
+AUTH_KEYCLOAK_SECRET=your-secret
+AUTH_KEYCLOAK_ISSUER=http://localhost:8080/realms/oversight
+```
+
+### With DataHub
+
+Cross-reference LLM traces with data lineage in DataHub to understand data flow through your ML pipelines.
+
+## Monitoring
+
+### Check Service Health
+
+```bash
+# View all containers
+docker compose ps
+
+# View logs
+docker compose logs langfuse-web
+docker compose logs langfuse-worker
+docker compose logs postgres
+docker compose logs clickhouse
+docker compose logs minio
+docker compose logs redis
+```
+
+### Metrics
+
+Langfuse provides built-in dashboards for:
+- Request volume
+- Latency percentiles
+- Token usage and costs
+- Error rates
+- Model performance
+
+## Troubleshooting
+
+### Issue: Services not starting
+
+**Solution:** Check Docker logs and ensure all ports are available.
+
+```bash
+docker compose logs
+```
+
+### Issue: Unable to connect to MinIO
+
+**Solution:** Verify MinIO is running and accessible:
+
+```bash
+curl http://localhost:9090/minio/health/live
+```
+
+### Issue: Database connection errors
+
+**Solution:** Wait for PostgreSQL to be fully initialized:
+
+```bash
+docker compose logs postgres
+```
+
+### Issue: Memory issues
+
+**Solution:** Increase Docker memory allocation to at least 8GB.
+
+## Production Deployment
+
+For production:
+
+1. **Change all default passwords** (marked with `# CHANGEME`)
+2. **Use external databases** for PostgreSQL, ClickHouse
+3. **Set up SSL/TLS** for all connections
+4. **Configure backups** for persistent volumes
+5. **Use Kubernetes** with Helm charts
+6. **Set up monitoring** with Prometheus/Grafana
+7. **Configure log aggregation**
+
+## Resources
+
+- [Official Documentation](https://langfuse.com/docs)
+- [GitHub Repository](https://github.com/langfuse/langfuse)
+- [Discord Community](https://langfuse.com/discord)
+- [API Reference](https://langfuse.com/docs/api)
+- [Examples](https://github.com/langfuse/langfuse-docs/tree/main/cookbook)
+
+## Next Steps
+
+- [Instrument your LLM application](https://langfuse.com/docs/get-started)
+- [Set up prompt management](https://langfuse.com/docs/prompts/get-started)
+- [Configure evaluation](https://langfuse.com/docs/scores/overview)
+- [Export data to DataHub](/guides/datahub)

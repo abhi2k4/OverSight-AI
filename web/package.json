@@ -7,9 +7,15 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "docs:dev": "cd src/docs && npm start",
+    "docs:build": "cd src/docs && npm run build",
+    "docs:serve": "cd src/docs && npm run serve",
+    "docs:install": "cd src/docs && npm install",
+    "build:all": "npm run build && npm run docs:build"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
     "@tabler/icons-react": "^3.36.1",
     "@vercel/analytics": "^1.6.1",
     "class-variance-authority": "^0.7.1",

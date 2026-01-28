@@ -28,6 +28,7 @@ import {
 import HeroSection from '@/components/HeroSection';
 import VideoSection from '@/components/VideoSection';
 import FeaturesSection from '@/components/FeaturesSection';
+import GetInTouchModal from '@/components/GetInTouchModal';
 
 // --- Components ---
 
@@ -177,6 +178,9 @@ export default function LandingPage() {
       <div className="min-h-screen font-sans selection:bg-primary/20">
         <div className="max-w-full mx-auto border-x min-h-screen relative bg-background text-foreground transition-colors duration-300">
         
+        {/* Get In Touch Modal */}
+        <GetInTouchModal />
+        
         {/* Resizable Navbar with Theme */}
         <Navbar className="top-0">
           <NavBody className="w-full">
@@ -237,7 +241,10 @@ export default function LandingPage() {
                 >
                   {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
                 </button>
-                <MobileNavToggle isOpen={mobileMenuOpen} />
+                <MobileNavToggle 
+                  isOpen={mobileMenuOpen} 
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                />
               </div>
             </MobileNavHeader>
             <MobileNavMenu isOpen={mobileMenuOpen} onClose={closeMobileMenu}>
