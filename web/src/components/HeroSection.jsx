@@ -94,7 +94,7 @@ const HeroSection = () => {
 
             <motion.div variants={fadeInUp} className="flex items-center gap-4 pt-4">
               <a 
-                href="#architecture" 
+                href="https://docs.oversightai.in/getting-started#architecture-overview" 
                 className="h-12 px-8 rounded-full bg-[#7C3AED] text-white font-medium flex items-center gap-2 hover:bg-[#6D28D9] transition-all shadow-xl shadow-purple-900/20 hover:scale-105 active:scale-95"
               >
                 Explore Architecture

@@ -1,10 +1,10 @@
 import { useRef } from 'react';
 import { useTransform, motion, useScroll } from 'framer-motion';
-import dashboardImg from '@/assets/dashboard.jpeg';
-import datasetImg from '@/assets/dataset.jpeg';
-import policyImg from '@/assets/policy-governance.jpeg';
-import alertsImg from '@/assets/alerts.jpeg';
-import agentsDiscoveryImg from '@/assets/agents-discovery.jpeg';
+import dashboardImg from '@/assets/features/dashboard.jpeg';
+import datasetImg from '@/assets/features/dataset.jpeg';
+import policyImg from '@/assets/features/policy-governance.jpeg';
+import alertsImg from '@/assets/features/alerts.jpeg';
+import agentsDiscoveryImg from '@/assets/features/agents-discovery.jpeg';
 
 const Card = ({ i, title, description, image, color, progress, range, targetScale }) => {
   const container = useRef(null);

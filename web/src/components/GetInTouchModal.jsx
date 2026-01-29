@@ -90,17 +90,6 @@ const GetInTouchModal = ({ isOpen: externalIsOpen, onClose: externalOnClose }) =
         emailJsConfig.publicKey
       );
 
-      // 2. Send auto-reply email
-      await emailjs.send(
-        emailJsConfig.serviceId,
-        emailJsConfig.autoReplyTemplateId,
-        {
-          name: payload.name,
-          email: payload.email,
-        },
-        emailJsConfig.publicKey
-      );
-
       // 3. Save to Google Sheets using no-cors mode (fire and forget)
       // This won't block the success message even if Google Sheets fails
       submitToGoogleSheets(payload);

@@ -26,6 +26,7 @@ import {
   NavbarButton 
 } from '@/components/ui/resizable-navbar';
 import HeroSection from '@/components/HeroSection';
+import BirdsEyeView from '@/components/BirdsEyeView';
 import VideoSection from '@/components/VideoSection';
 import FeaturesSection from '@/components/FeaturesSection';
 import GetInTouchModal from '@/components/GetInTouchModal';
@@ -359,6 +360,9 @@ export default function LandingPage() {
           
           {/* Hero Section with Animated Diagram */}
           <HeroSection />
+
+          {/* Bird's Eye View Section with Parallax */}
+          <BirdsEyeView className="sm:min-h-[33.33vh]" />
 
           {/* Video Section - Introduction */}
           <VideoSection />
