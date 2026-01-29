@@ -86,7 +86,7 @@ const VideoSection = () => {
           {/* Hover overlay accent */}
           <div className="absolute inset-0 bg-gradient-to-b from-[#7C3AED]/0 to-[#7C3AED]/0 group-hover:from-[#7C3AED]/5 group-hover:to-[#7C3AED]/0 pointer-events-none transition-all duration-300 z-10" />
           
-          <div style={{ paddingTop: '56.25%' }} className="relative">
+          <div style={{ paddingTop: '56.25%' }} className="relative overflow-hidden">
             <iframe
               loading="lazy"
               className="absolute top-0 left-0 w-full h-full"
@@ -95,6 +95,7 @@ const VideoSection = () => {
               allow="fullscreen"
               title="OverSight AI Governance Platform Demo"
               referrerPolicy="no-referrer"
+              style={{ border: 'none', display: 'block' }}
             />
           </div>
         </motion.div>

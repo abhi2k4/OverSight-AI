@@ -138,8 +138,6 @@ const FeaturesSection = () => {
         })}
       </div>
 
-      {/* Bottom spacing for last card */}
-      <div className="h-screen" />
     </section>
   );
 };

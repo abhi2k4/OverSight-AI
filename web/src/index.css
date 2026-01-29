@@ -76,3 +76,34 @@
     animation-play-state: paused;
   }
 }
+
+/* Custom thin scrollbar */
+@layer base {
+  /* Firefox scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(124, 58, 237) transparent;
+  }
+
+  /* Chrome, Edge, and Safari scrollbar */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background-color: rgb(124, 58, 237);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(109, 40, 217);
+    background-clip: padding-box;
+  }
+}
