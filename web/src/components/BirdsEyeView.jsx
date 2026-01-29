@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import eagleImage from '@/assets/eagle.png';
+import GradientText from '@/components/ui/GradientText';
 
 const BirdsEyeView = () => {
   const sectionRef = useRef(null);
@@ -49,7 +50,7 @@ const BirdsEyeView = () => {
   const birdLeft = useTransform(
     scrollYProgress,
     [0, 1],
-    ['0%', '13%']
+    ['0%', '19%']
   );
 
   const birdTop = useTransform(
@@ -61,9 +62,9 @@ const BirdsEyeView = () => {
   return (
     <section 
       ref={sectionRef}
-      className="relative w-full overflow-hidden bg-background sm:min-h-[33.33vh] lg:min-h-[66.66vh]"
+      className="hidden md:flex relative w-full overflow-hidden bg-background"
       style={{ 
-        // minHeight: '66.66vh',
+        minHeight: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
@@ -77,7 +78,7 @@ const BirdsEyeView = () => {
             // ? 'url(https://olivier3lanc.me/Scroll-Btween/img/gyp2-back-1000.webp)'
             // : 'url(https://olivier3lanc.me/Scroll-Btween/img/gyp-back-1000.webp)'
             ,
-          backgroundSize: '120%',
+          backgroundSize: '140%',
           backgroundRepeat: 'no-repeat',
           backgroundPositionY: 'center',
           backgroundPositionX: backgroundPositionX,
@@ -91,9 +92,18 @@ const BirdsEyeView = () => {
             viewport={{ once: true, amount: 0.3 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
           >
-            <h1 className={`text-[8vw] md:text-[6vw] lg:text-[8vw] font-bold leading-tight m-0 z-0 ${isDarkMode ? 'text-white/75' : 'text-black/75'}`}>
-            A Bird's Eye View{' '}
-            <span className="block relative z-20">on Data & AI</span>
+            <h1 className={`text-[16vw] md:text-[6vw] lg:text-[8vw] font-bold text-wrap lg:text-nowrap leading-tight m-0 z-0 ${isDarkMode ? 'text-white/75' : 'text-black/75'}`}>
+            A Bird's Eye View on{' '}
+            <span className="relative z-20 inline text-bold">
+              <GradientText 
+                colors={['#7C3AED', '#EC4899', '#06B6D4']}
+                animationSpeed={6}
+                pauseOnHover={true}
+                className="inline text-[inherit]"
+              >
+                Data & AI
+              </GradientText>
+            </span>
             </h1>
           </motion.header>
         </div>

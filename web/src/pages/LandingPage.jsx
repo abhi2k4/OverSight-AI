@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { ReactLenis } from 'lenis/react';
+import { motion } from 'framer-motion';
 import { 
   IconArrowRight,
   IconStack,
@@ -9,22 +10,9 @@ import {
   IconCloud,
   IconChartBar,
   IconCheck,
-  IconChevronDown,
-  IconSun,
-  IconMoon,
-  IconBrandGithub,
-  IconBrandGithubFilled
+  IconChevronDown
 } from '@tabler/icons-react';
-import { 
-  Navbar, 
-  NavBody, 
-  NavItems, 
-  MobileNav, 
-  MobileNavHeader, 
-  MobileNavToggle, 
-  MobileNavMenu, 
-  NavbarButton 
-} from '@/components/ui/resizable-navbar';
+import Header from '@/components/Header';
 import HeroSection from '@/components/HeroSection';
 import BirdsEyeView from '@/components/BirdsEyeView';
 import VideoSection from '@/components/VideoSection';
@@ -142,34 +130,8 @@ export default function LandingPage() {
     return 'light';
   });
   const [openAccordion, setOpenAccordion] = useState(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [activeTab, setActiveTab] = useState('hero');
 
-  // Handle navbar scroll effect
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollTop = window.scrollY;
-      setIsScrolled(scrollTop > 50);
-
-      // Detect active section
-      const sections = ['hero', 'features', 'faq'];
-      for (const section of sections) {
-        const element = document.getElementById(section);
-        if (element) {
-          const rect = element.getBoundingClientRect();
-          if (rect.top <= 150 && rect.bottom >= 150) {
-            setActiveTab(section);
-            break;
-          }
-        }
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // Apply theme to document root
   useEffect(() => {
@@ -190,17 +152,6 @@ export default function LandingPage() {
     setOpenAccordion(openAccordion === index ? null : index);
   };
 
-  const closeMobileMenu = () => {
-    setMobileMenuOpen(false);
-  };
-
-  const navItems = [
-    { name: 'Home', link: '#hero' },
-    { name: 'Features', link: '#features' },
-    { name: 'Docs', link: 'https://docs.oversightai.in', external: true },
-    { name: 'FAQ', link: '#faq' }
-  ];
-
   return (
     <ReactLenis root>
       <div className="min-h-screen font-sans selection:bg-primary/20">
@@ -212,148 +163,12 @@ export default function LandingPage() {
           onClose={() => setIsContactModalOpen(false)} 
         />
         
-        {/* Resizable Navbar with Theme */}
-        <Navbar className={`top-0 transition-all duration-300 ease-in-out `}>
-          <NavBody className="w-full">
-            <div className="flex items-center justify-between w-full">
-              <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
-                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors duration-200">
-                  <img 
-                    src="/OverSight.png" 
-                    alt="OverSight Logo" 
-                    className={`rounded-md object-cover transition-all duration-300 ${
-                      isScrolled ? 'w-6 h-6' : 'w-7 h-7'
-                    }`}
-                  />
-                </div>
-                <p className={`font-bold tracking-tight transition-all duration-300 ${
-                  isScrolled ? 'text-sm' : 'text-base'
-                }`}>
-                  <span className="text-[#7C3AED]">OverSight</span>
-                  <span className="text-muted-foreground font-normal">AI</span>
-                </p>
-              </a>
-              
-              <div className="hidden md:flex items-center justify-center space-x-1 absolute inset-0 pointer-events-none">
-                <div className="flex items-center space-x-1 pointer-events-auto">
-                  {navItems.map((item) => {
-                    const itemLink = item.link.replace('#', '');
-                    const isActive = activeTab === itemLink && !item.external;
-                    return (
-                      <a
-                        key={item.name}
-                        href={item.link}
-                        target={item.external ? "_blank" : undefined}
-                        rel={item.external ? "noopener noreferrer" : undefined}
-                        className={`relative px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg group ${
-                          isActive
-                            ? 'text-[#7C3AED] bg-[#7C3AED]/10'
-                            : 'text-muted-foreground hover:text-[#7C3AED] hover:bg-[#7C3AED]/5'
-                        }`}
-                      >
-                        <span className="relative z-10">{item.name}</span>
-                        {isActive && (
-                          <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-[#7C3AED] rounded-full" />
-                        )}
-                      </a>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 ml-auto relative z-50">
-                <button
-                  onClick={toggleTheme}
-                  className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors duration-200 rounded-lg hover:bg-[#7C3AED]/5"
-                  aria-label="Toggle theme"
-                >
-                  {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
-                </button>
-                <NavbarButton 
-                  href="#contact" 
-                  variant="primary" 
-                  className={`bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-all duration-200 hover:scale-105 ${
-                    isScrolled ? 'px-4 py-1.5 text-sm' : 'px-6 py-2'
-                  }`}
-                >
-                  Get Started
-                </NavbarButton>
-              </div>
-            </div>
-          </NavBody>
-
-          <MobileNav className="w-full">
-            <MobileNavHeader className="justify-between">
-              <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
-                <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors duration-200">
-                  <img 
-                    src="/OverSight.png" 
-                    alt="OverSight Logo" 
-                    className={`rounded-md object-cover transition-all duration-300 ${
-                      isScrolled ? 'w-5 h-5' : 'w-6 h-6'
-                    }`}
-                  />
-                </div>
-                <p className={`font-bold tracking-tight transition-all duration-300 ${
-                  isScrolled ? 'text-xs' : 'text-sm'
-                }`}>
-                  <span className="text-[#7C3AED]">OverSight</span>
-                </p>
-              </a>
-              <div className="flex items-center gap-2 relative z-50">
-                <button
-                  onClick={toggleTheme}
-                  className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors duration-200 rounded-lg hover:bg-[#7C3AED]/5"
-                  aria-label="Toggle theme"
-                >
-                  {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
-                </button>
-                <MobileNavToggle 
-                  isOpen={mobileMenuOpen} 
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                />
-              </div>
-            </MobileNavHeader>
-            <MobileNavMenu isOpen={mobileMenuOpen} onClose={closeMobileMenu}>
-              <div className="w-full space-y-2 p-4">
-                {navItems.map((item, index) => {
-                  const itemLink = item.link.replace('#', '');
-                  const isActive = activeTab === itemLink && !item.external;
-                  return (
-                    <a
-                      key={item.name}
-                      href={item.link}
-                      target={item.external ? "_blank" : undefined}
-                      rel={item.external ? "noopener noreferrer" : undefined}
-                      className={`block px-4 py-3 transition-all duration-200 text-sm font-medium rounded-lg group ${
-                        isActive
-                          ? 'text-[#7C3AED] bg-[#7C3AED]/10 border-l-2 border-[#7C3AED]'
-                          : 'text-muted-foreground hover:text-[#7C3AED] hover:bg-[#7C3AED]/5'
-                      }`}
-                      onClick={item.external ? undefined : closeMobileMenu}
-                      style={{ animationDelay: `${index * 50}ms` }}
-                    >
-                      <span className="flex items-center justify-between">
-                        {item.name}
-                        {item.external && <IconArrowRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" />}
-                      </span>
-                    </a>
-                  );
-                })}
-                <div className="pt-4 border-t border-border/50">
-                  <NavbarButton 
-                    href="#contact" 
-                    variant="primary" 
-                    className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] w-full transition-all duration-200 hover:scale-105"
-                    onClick={closeMobileMenu}
-                  >
-                    Get Started
-                  </NavbarButton>
-                </div>
-              </div>
-            </MobileNavMenu>
-          </MobileNav>
-        </Navbar>
+        {/* Header */}
+        <Header 
+          theme={theme} 
+          toggleTheme={toggleTheme}
+          setIsContactModalOpen={setIsContactModalOpen}
+        />
 
         {/* Main Content */}
         <main className="flex flex-col w-full relative z-10">
@@ -362,7 +177,7 @@ export default function LandingPage() {
           <HeroSection />
 
           {/* Bird's Eye View Section with Parallax */}
-          <BirdsEyeView className="sm:min-h-[33.33vh]" />
+          <BirdsEyeView /> 
 
           {/* Video Section - Introduction */}
           <VideoSection />
@@ -443,38 +258,59 @@ export default function LandingPage() {
           </section>
 
           {/* CTA - Inspired by the provided image design */}
-          <section id="contact" className="py-32 px-6 bg-[#2563EB] relative overflow-hidden">
-                {/* Clean blue background with subtle shape hint */}
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.1)_0%,transparent_40%)]" />
-                <div className="absolute inset-0 bg-[linear-gradient(to_bottom_right,transparent_0%,rgba(0,0,0,0.05)_100%)]" />
+          <section id="contact" className="py-32 px-6 bg-gradient-to-r from-blue-600 to-[#7C3AED] relative overflow-hidden">
+                {/* Animated background elements */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15)_0%,transparent_50%)]" />
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-white/10 blur-[120px] rounded-full pointer-events-none" />
+                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-400/10 blur-[120px] rounded-full pointer-events-none" />
+                <div className="absolute inset-0 bg-[linear-gradient(to_bottom_right,transparent_0%,rgba(0,0,0,0.1)_100%)]" />
                 
                 <div className="max-w-5xl mx-auto text-center relative z-10 text-white">
-                    <h2 className="text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-10 leading-tight">
-                        Govern.<br/>Monitor. Trust.
-                    </h2>
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6 }}
+                    >
+                      <h2 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight mb-6 leading-tight">
+                          Govern.<br/>Monitor. <span className="text-white/90">Trust.</span>
+                      </h2>
+                    </motion.div>
                     
-                    <p className="text-xl md:text-2xl text-blue-100 mb-12 max-w-2xl mx-auto">
+                    <motion.p 
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6, delay: 0.1 }}
+                      className="text-xl md:text-2xl text-white/90 mb-12 max-w-2xl mx-auto leading-relaxed"
+                    >
                         Join leading enterprises in building trustworthy AI systems.
-                    </p>
+                    </motion.p>
                     
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12">
-                        <Button 
-                            variant="white" 
-                            size="lg" 
-                            className="rounded-full h-14 px-8 text-base font-bold shadow-xl hover:scale-105 transition-all duration-300 text-[#2563EB] w-full sm:w-auto"
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.6, delay: 0.2 }}
+                      className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-12"
+                    >
+                        <motion.button 
+                            whileHover={{ scale: 1.05, boxShadow: '0 20px 40px rgba(255,255,255,0.2)' }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => window.open('https://github.com/abhi2k4/GRACE_Knowcode_OverSight', '_blank')}
+                            className="rounded-full h-14 px-8 text-base font-bold shadow-xl bg-white text-blue-600 hover:shadow-2xl transition-all duration-300 w-full sm:w-auto"
                         >
                             Get Started
-                        </Button>
-                        <Button 
-                            variant="outline" 
-                            size="lg" 
-                            className="rounded-full h-14 px-8 text-base font-bold bg-white/10 border-white/30 text-white hover:bg-white/20 backdrop-blur-sm w-full sm:w-auto"
+                        </motion.button>
+                        <motion.button 
+                            whileHover={{ scale: 1.05, backgroundColor: 'rgba(255,255,255,0.15)' }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => window.open('https://docs.oversightai.in', '_blank')}
+                            className="rounded-full h-14 px-8 text-base font-bold bg-white/10 border-2 border-white/50 text-white hover:border-white/80 backdrop-blur-sm w-full sm:w-auto transition-all duration-300"
                         >
                             View Documentation
-                        </Button>
-                    </div>
+                        </motion.button>
+                    </motion.div>
                    
                 </div>
           </section>
@@ -493,7 +329,7 @@ export default function LandingPage() {
                                     className="w-8 h-8 rounded-md object-cover"
                                 />
                             </div>
-                            <span className="font-bold text-xl text-primary">OverSight<span className="text-muted-foreground font-normal">AI</span></span>
+                            <span className="font-bold text-xl text-primary">OverSight<span className="text-muted-foreground font-normal">ai</span></span>
                          </div>
                          <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
                              Taming Enterprise AI with unified governance, real-time monitoring, and immutable audit trails.

@@ -1,15 +1,20 @@
-import { useState } from 'react';
-import { IconSun, IconMoon } from '@tabler/icons-react';
-import { motion, useScroll, useMotionValueEvent } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { IconArrowRight, IconSun, IconMoon } from '@tabler/icons-react';
+import { 
+  Navbar, 
+  NavBody, 
+  MobileNav, 
+  MobileNavHeader, 
+  MobileNavToggle, 
+  MobileNavMenu, 
+  NavbarButton 
+} from '@/components/ui/resizable-navbar';
 
-const Header = ({ theme, toggleTheme }) => {
-  const [isScrolled, setIsScrolled] = useState(false);
+const Header = ({ theme, toggleTheme, setIsContactModalOpen }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { scrollY } = useScroll();
-
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    setIsScrolled(latest > 50);
-  });
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeTab, setActiveTab] = useState('hero');
 
   const navItems = [
     { name: 'Home', link: '#hero' },
@@ -18,125 +23,187 @@ const Header = ({ theme, toggleTheme }) => {
     { name: 'FAQ', link: '#faq' }
   ];
 
+  // Handle navbar scroll effect
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      setIsScrolled(scrollTop > 50);
+
+      // Detect active section
+      const sections = ['hero', 'features', 'faq'];
+      for (const section of sections) {
+        const element = document.getElementById(section);
+        if (element) {
+          const rect = element.getBoundingClientRect();
+          if (rect.top <= 150 && rect.bottom >= 150) {
+            setActiveTab(section);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+  };
+
   return (
-    <>
-      {/* Desktop & Mobile Header */}
-      <motion.header
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ duration: 0.3 }}
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          isScrolled 
-            ? 'bg-background/80 backdrop-blur-lg border-b border-border shadow-sm' 
-            : 'bg-transparent'
-        }`}
-      >
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="flex items-center justify-between h-16 md:h-20">
-            {/* Logo */}
-            <a href="#hero" className="flex items-center gap-3 group flex-shrink-0">
-              <div className="relative flex items-center justify-center rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors">
-                <img 
-                  src="/OverSight.png" 
-                  alt="OverSight Logo" 
-                  className="h-10 w-auto object-contain"
-                />
-              </div>
-            </a>
-
-            {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
-              {navItems.map((item) => (
-                <a
-                  key={item.name}
-                  href={item.link}
-                  target={item.external ? '_blank' : undefined}
-                  rel={item.external ? 'noopener noreferrer' : undefined}
-                  className="text-sm font-medium text-muted-foreground hover:text-[#7C3AED] transition-colors relative group"
-                >
-                  {item.name}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#7C3AED] transition-all group-hover:w-full" />
-                </a>
-              ))}
-            </nav>
-
-            {/* Right Actions */}
-            <div className="flex items-center gap-3">
-              <button
-                onClick={toggleTheme}
-                className="p-2.5 text-muted-foreground hover:text-[#7C3AED] transition-colors rounded-lg hover:bg-[#7C3AED]/5"
-                aria-label="Toggle theme"
-              >
-                {theme === 'light' ? <IconMoon size={20} /> : <IconSun size={20} />}
-              </button>
-
-              <a
-                href="#contact"
-                className="hidden md:flex h-10 px-6 rounded-xl bg-[#7C3AED] text-white text-sm font-semibold items-center gap-2 hover:bg-[#6D28D9] transition-all shadow-lg shadow-purple-900/20 hover:scale-105 active:scale-95"
-              >
-                Get Started
-              </a>
-
-              {/* Mobile Menu Toggle */}
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors"
-                aria-label="Toggle menu"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  {mobileMenuOpen ? (
-                    <path d="M6 18L18 6M6 6l12 12" />
-                  ) : (
-                    <path d="M4 6h16M4 12h16M4 18h16" />
-                  )}
-                </svg>
-              </button>
+    <Navbar className={`top-0 transition-all duration-300 ease-in-out`}>
+      <NavBody className="w-full">
+        <div className="flex items-center justify-between w-full">
+          <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
+            <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors duration-200">
+              <img 
+                src="/OverSight.png" 
+                alt="OverSight Logo" 
+                className={`rounded-md object-cover transition-all duration-300 ${
+                  isScrolled ? 'w-6 h-6' : 'w-7 h-7'
+                }`}
+              />
+            </div>
+            <p className={`font-bold tracking-tight transition-all duration-300 ${
+              isScrolled ? 'text-sm' : 'text-base'
+            }`}>
+              <span className="text-bold">OverSight</span>
+              <span className="text-muted-foreground font-small">ai</span>
+            </p>
+          </a>
+          
+          <div className="hidden md:flex items-center justify-center space-x-1 absolute inset-0 pointer-events-none">
+            <div className="flex items-center space-x-1 pointer-events-auto">
+              {navItems.map((item) => {
+                const itemLink = item.link.replace('#', '');
+                const isActive = activeTab === itemLink && !item.external;
+                return (
+                  <a
+                    key={item.name}
+                    href={item.link}
+                    target={item.external ? "_blank" : undefined}
+                    rel={item.external ? "noopener noreferrer" : undefined}
+                    className={`relative px-4 py-2 text-sm font-medium transition-all duration-200 rounded-lg group ${
+                      isActive
+                        ? 'text-[#7C3AED] bg-[#7C3AED]/10'
+                        : 'text-muted-foreground hover:text-[#7C3AED] hover:bg-[#7C3AED]/5'
+                    }`}
+                  >
+                    <span className="relative z-10">{item.name}</span>
+                    {isActive && (
+                      <div className="absolute bottom-0 left-4 right-4 h-0.5 bg-[#7C3AED] rounded-full" />
+                    )}
+                  </a>
+                );
+              })}
             </div>
           </div>
-        </div>
 
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-background/95 backdrop-blur-lg border-t border-border"
-          >
-            <div className="max-w-7xl mx-auto px-6 py-6 space-y-4">
-              {navItems.map((item) => (
-                <a
-                  key={item.name}
-                  href={item.link}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block text-base font-medium text-muted-foreground hover:text-[#7C3AED] transition-colors py-2"
-                >
-                  {item.name}
-                </a>
-              ))}
-              <a
-                href="#contact"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex h-12 px-6 rounded-xl bg-[#7C3AED] text-white text-sm font-semibold items-center justify-center gap-2 hover:bg-[#6D28D9] transition-all shadow-lg shadow-purple-900/20 w-full mt-4"
+          <div className="flex items-center gap-3 ml-auto relative z-50">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleTheme}
+              className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors duration-200 rounded-lg hover:bg-[#7C3AED]/5"
+              aria-label="Toggle theme"
+            >
+              {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
+            </motion.button>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <NavbarButton 
+                href="#contact" 
+                variant="primary" 
+                className={`bg-[#7C3AED] text-white hover:bg-[#6D28D9] transition-all duration-200 hover:scale-105 ${
+                  isScrolled ? 'px-4 py-1.5 text-sm' : 'px-6 py-2'
+                }`}
               >
                 Get Started
-              </a>
-            </div>
-          </motion.div>
-        )}
-      </motion.header>
+              </NavbarButton>
+            </motion.div>
+          </div>
+        </div>
+      </NavBody>
 
-      {/* Spacer to prevent content from going under fixed header */}
-      <div className="h-16 md:h-20" />
-    </>
+      <MobileNav className="w-full">
+        <MobileNavHeader className="justify-between">
+          <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
+            <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors duration-200">
+              <img 
+                src="/OverSight.png" 
+                alt="OverSight Logo" 
+                className={`rounded-md object-cover transition-all duration-300 ${
+                  isScrolled ? 'w-5 h-5' : 'w-6 h-6'
+                }`}
+              />
+            </div>
+            <p className={`font-bold tracking-tight transition-all duration-300 ${
+              isScrolled ? 'text-xs' : 'text-sm'
+            }`}>
+              <span className="text-bold">OverSight</span>
+            </p>
+          </a>
+          <div className="flex items-center gap-2 relative z-50">
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleTheme}
+              className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors duration-200 rounded-lg hover:bg-[#7C3AED]/5"
+              aria-label="Toggle theme"
+            >
+              {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
+            </motion.button>
+            <MobileNavToggle 
+              isOpen={mobileMenuOpen} 
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            />
+          </div>
+        </MobileNavHeader>
+        <MobileNavMenu isOpen={mobileMenuOpen} onClose={closeMobileMenu}>
+          <div className="w-full space-y-2 p-4">
+            {navItems.map((item, index) => {
+              const itemLink = item.link.replace('#', '');
+              const isActive = activeTab === itemLink && !item.external;
+              return (
+                <motion.a
+                  key={item.name}
+                  href={item.link}
+                  target={item.external ? "_blank" : undefined}
+                  rel={item.external ? "noopener noreferrer" : undefined}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className={`block px-4 py-3 transition-all duration-200 text-sm font-medium rounded-lg group ${
+                    isActive
+                      ? 'text-[#7C3AED] bg-[#7C3AED]/10 border-l-2 border-[#7C3AED]'
+                      : 'text-muted-foreground hover:text-[#7C3AED] hover:bg-[#7C3AED]/5'
+                  }`}
+                  onClick={item.external ? undefined : closeMobileMenu}
+                >
+                  <span className="flex items-center justify-between">
+                    {item.name}
+                    {item.external && <IconArrowRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity duration-200" />}
+                  </span>
+                </motion.a>
+              );
+            })}
+            <div className="pt-4 border-t border-border/50">
+              <NavbarButton 
+                href="#contact" 
+                variant="primary" 
+                className="bg-[#7C3AED] text-white hover:bg-[#6D28D9] w-full transition-all duration-200 hover:scale-105"
+                onClick={closeMobileMenu}
+              >
+                Get Started
+              </NavbarButton>
+            </div>
+          </div>
+        </MobileNavMenu>
+      </MobileNav>
+    </Navbar>
   );
 };
 

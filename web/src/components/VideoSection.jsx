@@ -31,8 +31,7 @@ const VideoSection = () => {
       id="video" 
       className="w-full py-24 md:py-32 px-6 bg-background relative overflow-hidden border-y border-border"
     >
-      {/* Subtle background accent */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-[#7C3AED]/5 blur-[120px] rounded-full pointer-events-none" />
+    
       
       <motion.div
         variants={containerVariants}
@@ -41,50 +40,52 @@ const VideoSection = () => {
         viewport={{ once: true, amount: 0.3 }}
         className="max-w-6xl mx-auto relative z-10"
       >
-        {/* Header */}
-        <div className="text-center mb-12">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7C3AED]/10 border border-[#7C3AED]/20 mb-6"
-          >
-            <IconPlayerPlay size={16} className="text-[#7C3AED]" />
-            <span className="text-sm font-medium text-[#7C3AED]">OverSight AI</span>
-          </motion.div>
-          
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-4xl md:text-5xl font-bold tracking-tight mb-4"
-          >
-            A Birds'-Eye View for Data & AI across Enterprise
-          </motion.h2>
-          
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-lg text-muted-foreground max-w-2xl mx-auto"
-          >
-            Discover how leading teams use OverSight to govern, monitor, and scale their enterprise AI infrastructure
-          </motion.p>
-        </div>
 
-        {/* Video Container with Scroll Animation */}
+          <div className="text-center mb-16">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7C3AED]/15 border border-[#7C3AED]/30 mb-8 backdrop-blur-sm hover:bg-[#7C3AED]/20 transition-colors"
+            >
+              <span className="text-sm font-semibold text-[#7C3AED]"></span>
+            </motion.div>
+            
+            <motion.h2
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+              className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-6 text-foreground"
+            >
+              Why Choose OverSight ?
+            </motion.h2>
+            
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="text-lg text-muted-foreground max-w-2xl mx-auto"
+            >
+              Discover how leading teams use OverSight to govern, monitor, and scale their enterprise AI infrastructure
+            </motion.p>
+          </div>
+
+          {/* Video Container with Scroll Animation */}
         <motion.div
           style={{ scale, opacity }}
-          className="relative w-full rounded-2xl overflow-hidden shadow-2xl border border-border bg-card group hover:shadow-purple-900/20 transition-all duration-300"
+          className="relative w-full rounded-2xl overflow-hidden shadow-2xl border border-border/50 bg-card group hover:shadow-[0_0_50px_rgba(124,58,237,0.2)] transition-all duration-300 hover:border-[#7C3AED]/30"
           whileInView={{ scale: 1 }}
           viewport={{ once: false, amount: 0.3 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
+          {/* Animated border glow */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#7C3AED]/20 via-transparent to-[#7C3AED]/20 opacity-0 group-hover:opacity-50 blur-lg transition-opacity duration-500 pointer-events-none -z-10" />
+          
           {/* Hover overlay accent */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#7C3AED]/0 to-[#7C3AED]/0 group-hover:from-[#7C3AED]/5 group-hover:to-[#7C3AED]/0 pointer-events-none transition-all duration-300 z-10" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#7C3AED]/0 to-[#7C3AED]/0 group-hover:from-[#7C3AED]/10 group-hover:to-[#7C3AED]/0 pointer-events-none transition-all duration-300 z-10" />
           
           <div style={{ paddingTop: '56.25%' }} className="relative overflow-hidden">
             <iframe
@@ -101,19 +102,6 @@ const VideoSection = () => {
         </motion.div>
 
         {/* Video Caption */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="text-center mt-6"
-        >
-          <p className="text-sm text-muted-foreground items-center mx-auto">
-              Leverages proven open-source components (DataHub + Langfuse observability + MinIO storage + Keycloak auth) already running in 10,000+ enterprise environments and delivers unified control instead of siloed tools
-          </p>
-        </motion.div>
-
-        {/* Key Highlights */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
