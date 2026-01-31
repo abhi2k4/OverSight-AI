@@ -27,7 +27,7 @@ const Card = ({ i, title, description, image, color, progress, range, targetScal
           scale,
           top: `120px)`,
         }}
-        className="flex flex-col relative -top-[25%] h-[500px] w-[75%] rounded-3xl p-6 lg:p-10 origin-top shadow-2xl overflow-hidden group hover:shadow-2xl transition-all duration-300"
+        className="flex flex-col relative -top-[25%] h-[500px] w-[80%] rounded-3xl p-6 lg:p-10 origin-top shadow-2xl overflow-hidden group hover:shadow-2xl transition-all duration-300"
       >
        
         {/* Animated Border Glow */}
@@ -36,13 +36,13 @@ const Card = ({ i, title, description, image, color, progress, range, targetScal
         {/* Content */}
         <div className="relative z-10">
           <div className="flex items-center gap-4 mb-8">
-            <motion.div 
+            {/* <motion.div 
               className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm text-white font-bold text-lg border border-white/30"
               whileHover={{ scale: 1.1, rotate: 5 }}
               transition={{ type: "spring", stiffness: 400 }}
             >
               0{i + 1}
-            </motion.div>
+            </motion.div> */}
             <h2 className="text-3xl lg:text-4xl font-bold text-white leading-tight">{title}</h2>
           </div>
 
@@ -51,18 +51,18 @@ const Card = ({ i, title, description, image, color, progress, range, targetScal
               <p className="text-base lg:text-lg text-white/95 leading-relaxed font-light">{description}</p>      
             </div>
 
-            <div className="relative lg:w-[65%] h-full rounded-2xl overflow-hidden bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md border border-white/20 shadow-inner group/image">
+            <div className="relative lg:w-[65%] h-full rounded-2xl overflow-visible group/image">
               {/* Image Border Effect */}
-              <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-black/20 via-transparent to-white/10 pointer-events-none opacity-0 group-hover/image:opacity-100 transition-opacity duration-500" />
+              <div className="absolute inset-0 rounded-2xl  pointer-events-none opacity-0 group-hover/image:opacity-100 transition-opacity duration-500" />
               
               <motion.div
-                className="w-full h-full"
+                className="w-full h-full overflow-y-visible rounded-t-2xl overflow-hidden"
                 style={{ scale: imageScale }}
               >
                 <img 
                   src={image} 
                   alt={title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-auto object-cover rounded-2xl "
                 />
               </motion.div>
             </div>

@@ -29,7 +29,7 @@ const VideoSection = () => {
     <section 
       ref={sectionRef}
       id="video" 
-      className="w-full py-24 md:py-32 px-6 bg-background relative overflow-hidden border-y border-border"
+      className="w-full py-24 md:py-32 px-6 bg-background relative overflow-hidden"
     >
     
       
@@ -42,7 +42,7 @@ const VideoSection = () => {
       >
 
           <div className="text-center mb-16">
-            <motion.div
+            {/* <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -50,7 +50,7 @@ const VideoSection = () => {
               className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#7C3AED]/15 border border-[#7C3AED]/30 mb-8 backdrop-blur-sm hover:bg-[#7C3AED]/20 transition-colors"
             >
               <span className="text-sm font-semibold text-[#7C3AED]"></span>
-            </motion.div>
+            </motion.div> */}
             
             <motion.h2
               initial={{ opacity: 0, y: 20 }}

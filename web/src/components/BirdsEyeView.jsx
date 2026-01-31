@@ -110,7 +110,7 @@ const BirdsEyeView = () => {
 
         {/* Front Bird Image with Parallax */}
       <motion.figure
-        className="absolute w-full h-full flex items-center justify-center pointer-events-none z-c"
+        className="absolute w-full h-full flex items-center justify-center pointer-events-none z-10"
         style={{
           left: birdLeft,
           top: birdTop,

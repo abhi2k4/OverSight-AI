@@ -131,7 +131,10 @@ export default function LandingPage() {
   });
   const [openAccordion, setOpenAccordion] = useState(null);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-
+  const heroRef = useRef(null);
+  const birdsEyeRef = useRef(null);
+  const scrollTimeoutRef = useRef(null);
+  const isScrollSnapActiveRef = useRef(false);
 
   // Apply theme to document root
   useEffect(() => {
@@ -143,6 +146,54 @@ export default function LandingPage() {
       localStorage.setItem('theme', 'light');
     }
   }, [theme]);
+
+  // Smooth scroll snap effect
+  useEffect(() => {
+    const handleScroll = () => {
+      if (isScrollSnapActiveRef.current) return;
+
+      if (!heroRef.current || !birdsEyeRef.current) return;
+
+      const heroRect = heroRef.current.getBoundingClientRect();
+      const heroHeight = heroRef.current.offsetHeight;
+      const heroMidpoint = heroHeight / 2;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const heroTop = heroRef.current.offsetTop;
+      const heroScrollProgress = scrollTop - heroTop;
+
+      // If scrolled past halfway point of hero section
+      if (heroScrollProgress > heroMidpoint && heroScrollProgress < heroHeight) {
+        isScrollSnapActiveRef.current = true;
+
+        // Clear any existing timeout
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+
+        // Smooth scroll to bird's eye view
+        scrollTimeoutRef.current = setTimeout(() => {
+          const birdsEyeTop = birdsEyeRef.current.offsetTop;
+          window.scrollTo({
+            top: birdsEyeTop,
+            behavior: 'smooth'
+          });
+
+          // Re-enable scroll snap after smooth scroll completes
+          setTimeout(() => {
+            isScrollSnapActiveRef.current = false;
+          }, 1000);
+        }, 100);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const toggleTheme = () => {
     setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
@@ -174,10 +225,14 @@ export default function LandingPage() {
         <main className="flex flex-col w-full relative z-10">
           
           {/* Hero Section with Animated Diagram */}
-          <HeroSection />
+          <div ref={heroRef}>
+            <HeroSection />
+          </div>
 
           {/* Bird's Eye View Section with Parallax */}
-          <BirdsEyeView /> 
+          <div ref={birdsEyeRef}>
+            <BirdsEyeView />
+          </div>
 
           {/* Video Section - Introduction */}
           <VideoSection />
@@ -203,10 +258,6 @@ export default function LandingPage() {
                           {
                               q: "What problem does OverSight solve?",
                               a: "OverSight closes the governance gap by answering who used what data, through which AI agent, for what purpose, and whether it complied with organizational and regulatory policies."
-                          },
-                          {
-                              q: "What is an AI Agent?",
-                              a: "An AI Agent is an autonomous system that consumes data, reasons over it, and takes actions or decisions. OverSight tracks and governs every data interaction and decision made by AI agents."
                           },
                           {
                               q: "How does OverSight work?",

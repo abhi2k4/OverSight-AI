@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-
-// Import hero diagram
 import cloudDiagram from '../assets/hero/cloud-diagram.png';
+// Import hero diagram component
+import GovernancePlatform from './hero-diagram/GovernancePlatform';
+import AnimatedBeamMultipleInputs from './hero-diagram/AnimatedBeamMultipleInputs';
 
 const HeroSection = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -116,11 +117,12 @@ const HeroSection = () => {
               animate={floatAnimation}
               className="w-full max-w-[650px] lg:max-w-[700px]"
             >
-              <img 
-                src={cloudDiagram} 
-                alt="OverSight Architecture - AI Governance Control Plane with DataHub, Langfuse, KeyCloak, and Minio integrations" 
-                className="w-full h-auto drop-shadow-2xl"
-              />
+              {/* Animated Beam Component */}
+              {/* <AnimatedBeamMultipleInputs /> */}
+              
+              {/* Previous implementations - commented out */}
+              <img src={cloudDiagram} alt="OverSight Architecture - AI Governance Control Plane with DataHub, Langfuse, KeyCloak, and Minio integrations"  className="w-full h-auto drop-shadow-2xl" />
+              {/* <GovernancePlatform /> */}
             </motion.div>
           </motion.div>
         </div>

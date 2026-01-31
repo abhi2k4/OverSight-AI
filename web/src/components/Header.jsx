@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { IconArrowRight, IconSun, IconMoon } from '@tabler/icons-react';
+import { IconArrowRight } from '@tabler/icons-react';
+import { AnimatedThemeToggler } from '@/components/ui/animated-theme-toggler';
 import { 
   Navbar, 
   NavBody, 
@@ -101,15 +102,7 @@ const Header = ({ theme, toggleTheme, setIsContactModalOpen }) => {
           </div>
 
           <div className="flex items-center gap-3 ml-auto relative z-50">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={toggleTheme}
-              className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors duration-200 rounded-lg hover:bg-[#7C3AED]/5"
-              aria-label="Toggle theme"
-            >
-              {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
-            </motion.button>
+            <AnimatedThemeToggler />
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -129,7 +122,7 @@ const Header = ({ theme, toggleTheme, setIsContactModalOpen }) => {
       </NavBody>
 
       <MobileNav className="w-full">
-        <MobileNavHeader className="justify-between">
+        <MobileNavHeader className="justify-between h-14">
           <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
             <div className="relative flex items-center justify-center p-1 rounded-lg group-hover:bg-[#7C3AED]/5 transition-colors duration-200">
               <img 
@@ -147,15 +140,7 @@ const Header = ({ theme, toggleTheme, setIsContactModalOpen }) => {
             </p>
           </a>
           <div className="flex items-center gap-2 relative z-50">
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={toggleTheme}
-              className="p-2 text-muted-foreground hover:text-[#7C3AED] transition-colors duration-200 rounded-lg hover:bg-[#7C3AED]/5"
-              aria-label="Toggle theme"
-            >
-              {theme === 'light' ? <IconMoon size={18} /> : <IconSun size={18} />}
-            </motion.button>
+            <AnimatedThemeToggler />
             <MobileNavToggle 
               isOpen={mobileMenuOpen} 
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
