@@ -19,7 +19,7 @@ const Card = ({ i, title, description, image, color, progress, range, targetScal
   return (
     <div
       ref={container}
-      className="h-screen flex items-center justify-center sticky top-0"
+      className="h-screen flex items-center justify-center sticky top-10"
     >
       <motion.div
         style={{

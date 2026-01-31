@@ -16,6 +16,9 @@ const Header = ({ theme, toggleTheme, setIsContactModalOpen }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeTab, setActiveTab] = useState('hero');
+  const [isNavbarVisible, setIsNavbarVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const [inFeaturesSection, setInFeaturesSection] = useState(false);
 
   const navItems = [
     { name: 'Home', link: '#hero' },
@@ -24,7 +27,7 @@ const Header = ({ theme, toggleTheme, setIsContactModalOpen }) => {
     { name: 'FAQ', link: '#faq' }
   ];
 
-  // Handle navbar scroll effect
+  // Handle navbar scroll effect with direction detection for Features section
   useEffect(() => {
     const handleScroll = () => {
       const scrollTop = window.scrollY;
@@ -38,22 +41,44 @@ const Header = ({ theme, toggleTheme, setIsContactModalOpen }) => {
           const rect = element.getBoundingClientRect();
           if (rect.top <= 150 && rect.bottom >= 150) {
             setActiveTab(section);
+            
+            // Check if we're in features section
+            if (section === 'features') {
+              setInFeaturesSection(true);
+              
+              // Detect scroll direction for features section
+              if (scrollTop > lastScrollY) {
+                // Scrolling down - hide navbar
+                setIsNavbarVisible(false);
+              } else {
+                // Scrolling up - show navbar
+                setIsNavbarVisible(true);
+              }
+            } else {
+              // Outside features section - always show navbar
+              setInFeaturesSection(false);
+              setIsNavbarVisible(true);
+            }
             break;
           }
         }
       }
+
+      setLastScrollY(scrollTop);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [lastScrollY]);
 
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
   };
 
   return (
-    <Navbar className={`top-0 transition-all duration-300 ease-in-out`}>
+    <Navbar className={`top-0 transition-all duration-300 ease-in-out ${
+      inFeaturesSection && !isNavbarVisible ? '-translate-y-full' : 'translate-y-0'
+    }`}>
       <NavBody className="w-full">
         <div className="flex items-center justify-between w-full">
           <a href="#hero" className="flex items-center gap-2 group flex-shrink-0">
