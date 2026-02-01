@@ -59,7 +59,7 @@ const VideoSection = () => {
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight mb-6 text-foreground"
             >
-              Why Choose OverSight ?
+              Why Choose OverSightAI ?
             </motion.h2>
             
             <motion.p
@@ -84,20 +84,13 @@ const VideoSection = () => {
           {/* Animated border glow */}
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#7C3AED]/20 via-transparent to-[#7C3AED]/20 opacity-0 group-hover:opacity-50 blur-lg transition-opacity duration-500 pointer-events-none -z-10" />
           
-          {/* Hover overlay accent */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#7C3AED]/0 to-[#7C3AED]/0 group-hover:from-[#7C3AED]/10 group-hover:to-[#7C3AED]/0 pointer-events-none transition-all duration-300 z-10" />
-          
           <div style={{ paddingTop: '56.25%' }} className="relative overflow-hidden">
             <iframe
               loading="lazy"
               className="absolute top-0 left-0 w-full h-full"
-              src="https://www.canva.com/design/DAG_Q64M128/SGio7fZPi7Rp9x61nKb7vw/watch?embed&controls"
-              allowFullScreen
-              allow="fullscreen"
-              title="OverSight AI Governance Platform Demo"
-              referrerPolicy="no-referrer"
-              style={{ border: 'none', display: 'block' }}
-            />
+              src="https://www.youtube.com/embed/MwNcHePGghM?si=2bcQH9uOZOpXsq4z" title="OverSightAI" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope" 
+              referrerpolicy="strict-origin-when-cross-origin" allowfullscreen>
+            </iframe>
           </div>
         </motion.div>
 

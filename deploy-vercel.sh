@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# OverSight AI - Vercel Deployment Script
+# OverSightAI - Vercel Deployment Script
 # This script helps deploy both the main site and docs to Vercel
 
 set -e
 
-echo "🚀 OverSight AI - Vercel Deployment"
+echo "🚀 OverSightAI - Vercel Deployment"
 echo "===================================="
 echo ""
 

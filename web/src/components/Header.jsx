@@ -95,7 +95,7 @@ const Header = ({ theme, toggleTheme, setIsContactModalOpen }) => {
               isScrolled ? 'text-sm' : 'text-base'
             }`}>
               <span className="text-bold">OverSight</span>
-              <span className="text-muted-foreground font-small">ai</span>
+              <span className="text-muted-foreground font-small">AI</span>
             </p>
           </a>
           

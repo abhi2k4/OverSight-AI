@@ -10,7 +10,7 @@ import {themes as prismThemes} from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'OverSight AI',
+  title: 'OverSightAI',
   tagline: 'Unified Enterprise Data Observability Platform',
   favicon: 'img/OverSight.png',
 
@@ -84,7 +84,7 @@ const config = {
         respectPrefersColorScheme: true,
       },
       navbar: {
-        title: 'OverSight AI',
+        title: 'OverSightAI',
         logo: {
           alt: 'OverSight Logo',
           src: 'img/OverSight.png',
@@ -163,7 +163,7 @@ const config = {
             ],
           },
         ],
-        copyright: `© ${new Date().getFullYear()} OverSight AI - Unified Enterprise Data Observability Platform. Built with ❤️ for the data community.`,
+        copyright: `© ${new Date().getFullYear()} OverSightAI - Unified Enterprise Data Observability Platform. Built with ❤️ for the data community.`,
       },
       prism: {
         theme: prismThemes.github,

@@ -1,6 +1,6 @@
 # AI Agents Quick Start Guide
 
-Get started with the OverSight AI Agents system in 5 minutes!
+Get started with the OverSightAI Agents system in 5 minutes!
 
 ## Prerequisites
 

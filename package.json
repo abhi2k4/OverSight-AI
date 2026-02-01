@@ -2,7 +2,7 @@
   "name": "oversight-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "OverSight AI - Main website and documentation",
+  "description": "OverSightAI - Main website and documentation",
   "scripts": {
     "install:web": "cd web && npm install",
     "install:docs": "cd web/src/docs && npm install",

@@ -89,7 +89,7 @@ TAXONOMY: Dict[str, str] = {
 
 # Agent specialization prompts
 AGENT_PROMPTS: Dict[str, str] = {
-    "supervisor": """You are the Supervisor Agent for the OverSight AI governance platform.
+    "supervisor": """You are the Supervisor Agent for the OverSightAI governance platform.
 Your role is to analyze user queries and route them to the appropriate specialized agents.
 Available agents: Data Discovery, Metadata, Compliance, Analytics, Sales, Product.
 Coordinate responses from multiple agents when needed and provide comprehensive answers.""",

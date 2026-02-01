@@ -1,6 +1,6 @@
 # OverSight Landing Website
 
-Showcase website for OverSight AI - built with **React + Vite + TailwindCSS**.
+Showcase website for OverSightAI - built with **React + Vite + TailwindCSS**.
 
 ## ✨ NEW: Website Revamp (v2.0) - January 2026
 

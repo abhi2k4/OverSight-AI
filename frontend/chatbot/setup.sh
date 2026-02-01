@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # OverSight Chatbot Quick Setup Script
-echo "🤖 OverSight AI Chatbot Setup"
+echo "🤖 OverSightAI Chatbot Setup"
 echo "=============================="
 echo ""
 

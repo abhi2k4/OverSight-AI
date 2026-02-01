@@ -113,7 +113,7 @@ async def websocket_agent_chat(
         # Send connection success
         await manager.send_message(client_id, {
             "type": "status",
-            "content": "Connected to OverSight AI Agent",
+            "content": "Connected to OverSightAI Agent",
             "session_id": session_id,
             "agent_type": agent_type,
             "timestamp": datetime.now().isoformat()

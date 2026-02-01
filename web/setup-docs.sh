@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# OverSight AI - Documentation Setup Script
+# OverSightAI - Documentation Setup Script
 # This script sets up the documentation site and main app
 
 set -e
 
-echo "🚀 Setting up OverSight AI - Main App & Documentation"
+echo "🚀 Setting up OverSightAI - Main App & Documentation"
 echo "======================================================"
 echo ""
 

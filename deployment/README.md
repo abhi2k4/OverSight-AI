@@ -1,6 +1,6 @@
 # OverSight Deployment Guide
 
-This directory contains all deployment configurations for the OverSight AI & Data Governance Platform. The deployment is designed to be **cloud-agnostic** and supports both **bare metal** and **Kubernetes** environments.
+This directory contains all deployment configurations for the OverSightAI & Data Governance Platform. The deployment is designed to be **cloud-agnostic** and supports both **bare metal** and **Kubernetes** environments.
 
 ## 📋 Table of Contents
 

@@ -90,8 +90,6 @@ const GetInTouchModal = ({ isOpen: externalIsOpen, onClose: externalOnClose }) =
         emailJsConfig.publicKey
       );
 
-      // 3. Save to Google Sheets using no-cors mode (fire and forget)
-      // This won't block the success message even if Google Sheets fails
       submitToGoogleSheets(payload);
 
       // Success - all submissions completed
@@ -258,7 +256,15 @@ const GetInTouchModal = ({ isOpen: externalIsOpen, onClose: externalOnClose }) =
                     <button
                       type="submit"
                       disabled={isSubmitting}
-                      className="w-full bg-primary text-white py-3.5 px-4 rounded-xl font-semibold hover:shadow-lg hover:shadow-primary/25 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary/50 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                      className="w-full py-3.5 px-4 text-foreground rounded-xl font-semibold font-['Inter'] bg-white/10 first-line:border border-white/30 backdrop-blur-md hover:bg-white/20 hover:text-white shadow-lg hover:shadow-primary/25 hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-primary/40 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+                      style={{
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: '1.1rem',
+                        letterSpacing: '0.01em',
+                        background: 'rgba(255,255,255,0.10)',
+                        border: '1px solid rgba(255,255,255,0.30)',
+                        boxShadow: '0 2px 24px 0 rgba(0,0,0,0.10)'
+                      }}
                     >
                       {isSubmitting ? (
                         <>
@@ -267,7 +273,7 @@ const GetInTouchModal = ({ isOpen: externalIsOpen, onClose: externalOnClose }) =
                         </>
                       ) : (
                         <>
-                          <IconSend size={18} />
+                          <IconSend size={16} />
                           Send Message
                         </>
                       )}
